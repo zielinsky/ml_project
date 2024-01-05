@@ -2,9 +2,14 @@ from dataclasses import dataclass
 from enum import Enum
 
 
+@dataclass
 class Player:
     name : str
-    id : str    # summoner name + tag (ie. Disstream-EUNE)
+    tag : str
+
+    def get_opgg_name(self):
+        new_name = self.name.replace(" ", "%20")
+        return f"{new_name}-{self.tag}"
 
 
 class Lanes(Enum):
