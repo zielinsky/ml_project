@@ -7,9 +7,11 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.select import Select
 import time
+from classes import *
 
 
 class Scrapper:
+    
     def __init__(self, webdriver_path : str):
         chrome_options = webdriver.ChromeOptions()
         chrome_options.add_experimental_option("detach", True) #Browser stays opened after executing commands
@@ -19,4 +21,4 @@ class Scrapper:
         self.driver.maximize_window()
 
     
-    
+    def get_n_recent_matches_info(n : int, player : Player):

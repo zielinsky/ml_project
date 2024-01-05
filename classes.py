@@ -2,6 +2,11 @@ from dataclasses import dataclass
 from enum import Enum
 
 
+class Player:
+    name : str
+    id : str    # summoner name + tag (ie. Disstream-EUNE)
+
+
 class Lanes(Enum):
     TOP = 1
     JUNGLE = 2
@@ -30,7 +35,7 @@ class Opgg_match:
 
 @dataclass
 class Player_info:
-    player_name : str
+    player : Player
     overall_win_rate : float
     rank : str
     total_games_played : int
