@@ -146,28 +146,29 @@ class Scrapper:
             pass
 
         self.get_only_solo_duo_games()
-        overall_win_rate = float(self.driver.find_element(By.CLASS_NAME, 'ratio').text[-3:-1]) / 100.0
-        # print(f"Winrate for {player.name}: {winrate} %")
 
-        rank = self.driver.find_element(By.CLASS_NAME, 'tier').text
-        # print(f"Player's rank for {player.name}: {rank}")
+        page = self.driver.find_element(By.ID, '__next')
 
-        temp = self.driver.find_element(By.CLASS_NAME, 'win-lose').text
+        overall_win_rate = float(page.find_element(By.CLASS_NAME, 'ratio').text[-3:-1]) / 100.0
+
+        rank = page.find_element(By.CLASS_NAME, 'tier').text
+
+        temp = page.find_element(By.CLASS_NAME, 'win-lose').text
         total_games_played = int(temp[0:3]) + int(temp[5:8])
 
-        level = int(self.driver.find_element(By.CLASS_NAME, 'level').text)
+        level = int(page.find_element(By.CLASS_NAME, 'level').text)
 
         last_twenty_games_kda_ratio = float(
-            self.driver.find_element(By.CLASS_NAME, 'stats-box').find_element(By.CLASS_NAME, 'ratio').text[:-2])
+            page.find_element(By.CLASS_NAME, 'stats-box').find_element(By.CLASS_NAME, 'ratio').text[:-2])
 
         last_twenty_games_kill_participation = float(
-            self.driver.find_element(By.CLASS_NAME, 'kill-participantion').text[-3:-1]) / 100
+            page.find_element(By.CLASS_NAME, 'kill-participantion').text[-3:-1]) / 100
 
         preferred_positions = [float(i.get_attribute('style').split(" ")[1][:-2]) / 100 for i in
-                               self.driver.find_elements(By.CLASS_NAME, 'gauge')]
+                               page.find_elements(By.CLASS_NAME, 'gauge')]
         preferred_positions = [(Lanes(i + 1), preferred_positions[i]) for i in range(5)]
 
-        last_twenty_games_win_rate = float(self.driver.find_element(By.CLASS_NAME, 'chart').text[:-1]) / 100
+        last_twenty_games_win_rate = float(page.find_element(By.CLASS_NAME, 'chart').text[:-1]) / 100
 
         return Player_info(player, overall_win_rate, rank, total_games_played, level, last_twenty_games_kda_ratio,
                            last_twenty_games_kill_participation, preferred_positions, last_twenty_games_win_rate)
@@ -184,6 +185,6 @@ scrapper = Scrapper("chromedriver.exe")
 #     for match in scrapper.get_n_recent_matches(50, player2):
 #         print(match)
 
-# print(scrapper.get_player_info(Player("DBicek", "EUNE")))
+scrapper.get_player_info(Player("DBicek", "EUNE")).show()
 
-print(scrapper.get_player_mastery_at_champion(Player("DBicek", "EUNE"), Champion.TEEMO))
+#print(scrapper.get_player_mastery_at_champion(Player("DBicek", "EUNE"), Champion.TEEMO))

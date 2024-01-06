@@ -85,6 +85,7 @@ class Player_info:
 @dataclass
 class Champ_stats:
     champion: Champion
+    lane: Lanes
     champion_tier: ChampionTier
     win_rate: float
     ban_rate: float
