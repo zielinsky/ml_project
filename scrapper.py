@@ -105,7 +105,7 @@ class Scrapper:
 
     def get_n_players_with_tier(self, n: int, tier: Tier) -> list[Player]:
         def get_n_players_on_page(n: int, page: int) -> list[Player]:
-            self.driver.get(f"https://www.op.gg/leaderboards/{'tier?tier=' + tier.value}&page={page}")
+            self.driver.get(f"https://www.op.gg/leaderboards/tier?tier={tier.value}&page={page}")
 
             players_a = self.driver.find_elements(By.XPATH, '//a[@class="summoner-link"]')
             players = [player_a.get_attribute('href').split("/")[5] for player_a in players_a[:n]]
