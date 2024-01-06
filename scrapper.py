@@ -80,7 +80,6 @@ class Scrapper:
             matches.append(Opgg_match(red_team, blue_team, winning_team))
         return matches
 
-
 # scrapper = Scrapper("ml_project/chromedriver")
 scrapper = Scrapper("chromedriver.exe")
 
