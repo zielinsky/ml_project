@@ -20,17 +20,30 @@ class Lanes(Enum):
     SUPPORT = 5
 
 
-class Teams(Enum):
+class MatchResult(Enum):
     RED = 1
     BLUE = 2
     REMAKE = 3
 
 
+class Tier(Enum):
+    IRON = 'iron'
+    BRONZE = 'bronze'
+    SILVER = 'silver'
+    GOLD = 'gold'
+    PLATINUM = 'platinum'
+    EMERALD = 'emerald'
+    DIAMOND = 'diamond'
+    MASTER = 'master'
+    GRANDMASTER = 'grandmaster'
+    CHALLENGER = 'challenger'
+    ALL = ''
+
 @dataclass
 class Opgg_match:
     team_red: list[((Player, str), Lanes)]  # [((Player, Champion), Line))]
     team_blue: list[((Player, str), Lanes)]
-    winner: Teams
+    winner: MatchResult
     # kills : int
     # deaths : int
     # assists : int

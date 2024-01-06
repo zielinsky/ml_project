@@ -5,17 +5,24 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time
 from classes import *
+import json
+
+with open("config.json") as json_file:
+    config = json.load(json_file)
+
+RIOT_API_KEY = config['API_RIOT_KEY']
 
 
 class Scrapper:
 
     def __init__(self, webdriver_path: str):
-        chrome_options = webdriver.ChromeOptions()
-        chrome_options.add_experimental_option("detach", True)  # Browser stays opened after executing commands
-
         service = Service(executable_path=webdriver_path)
+        chrome_options = webdriver.ChromeOptions()
+        chrome_options.add_argument('--headless=new')
+        # chrome_options.add_experimental_option("detach", True)  # Browser stays opened after executing commands
+
         self.driver = webdriver.Chrome(service=service, options=chrome_options)
-        self.driver.maximize_window()
+        # self.driver.maximize_window()
 
     def get_n_recent_matches(self, n: int, player: Player) -> list[Opgg_match]:
         game_info_class_name = "css-j7qwjs e17hr80g0"
@@ -38,42 +45,51 @@ class Scrapper:
         ranked_game_type.click()
 
         # Wait for match history to load on op.gg
-        WebDriverWait(self.driver, 10).until(
+        WebDriverWait(self.driver, 20).until(
             EC.presence_of_element_located((By.XPATH, '//div[@class="' + game_info_class_name + '"]'))
         )
 
         # Show more matches if n > 20
-        for _ in range(0, n//20):
-            show_more_button = self.driver.find_element(By.XPATH, '//button[@class="more"]')
-            show_more_button.click()
-            time.sleep(5)
+        try:
+            for _ in range(0, n // 20):
+                show_more_button = self.driver.find_element(By.XPATH, '//button[@class="more"]')
+                show_more_button.click()
+                time.sleep(3)
+        except:
+            pass
 
+        time.sleep(2)
         # Open matches details
-        button_list = self.driver.find_elements(By.CLASS_NAME, "btn-detail")
+        button_list = self.driver.find_elements(By.CLASS_NAME, "btn-detail")[:n]
         for button in button_list:
             button.click()
-            time.sleep(0.25)
+            time.sleep(0.001)
 
         # Get matches elem
-        matches_elems = self.driver.find_elements(By.XPATH, '//div[@class="' + game_info_class_name + '"]')
+        matches_div = self.driver.find_elements(By.XPATH, '//div[@class="' + game_info_class_name + '"]')
 
         matches = []
-        for match_elem in matches_elems[:n]:
-            match_info = match_elem.find_element(By.TAG_NAME, "th").text
-            match_result = "Victory" if "Victory" in match_info else "Defeat" if "Defeat" in match_info else "Remake"
+        for match_div in matches_div[:n]:
+            match_info = match_div.find_element(By.TAG_NAME, "th").text
             player_team = "Red" if "Red" in match_info else "Blue"
 
-            players_elems = match_elem.find_elements(By.CLASS_NAME, "overview-player")
+            match_result = MatchResult.REMAKE if "Remake" in match_info else \
+                MatchResult.BLUE if "Victory" in match_info and "Blue" in match_info else \
+                    MatchResult.RED if "Victory" in match_info and "Red" in match_info else \
+                        MatchResult.BLUE if "Red" in match_info else \
+                            MatchResult.RED
+
+            players_div = match_div.find_elements(By.CLASS_NAME, "overview-player")
 
             players_info = []  # [(Player(name='DBicek', tag='EUNE'), 'teemo', <Lanes.TOP: 1>), ...]
-            for idx, player_elem in enumerate(players_elems):
-                champion = player_elem.find_element(By.CLASS_NAME, "champion") \
-                                      .find_element(By.TAG_NAME, "a") \
-                                      .get_attribute('href').split("/")[4]
+            for idx, player_div in enumerate(players_div):
+                champion = player_div.find_element(By.CLASS_NAME, "champion") \
+                    .find_element(By.TAG_NAME, "a") \
+                    .get_attribute('href').split("/")[4]
 
-                player = player_elem.find_element(By.CLASS_NAME, "name") \
-                                    .find_element(By.TAG_NAME, "a") \
-                                    .get_attribute('href').split("/")[5]
+                player = player_div.find_element(By.CLASS_NAME, "name") \
+                    .find_element(By.TAG_NAME, "a") \
+                    .get_attribute('href').split("/")[5]
 
                 player_name = player.split("-")[0]
                 player_tag = player.split("-")[1]
@@ -81,14 +97,34 @@ class Scrapper:
 
             red_team = players_info[0:5] if player_team == 'Red' else players_info[5:10]
             blue_team = players_info[5:10] if player_team == 'Red' else players_info[0:5]
-            winning_team = player_team if match_result == "Victory" else "Red" if player_team == "Blue" else "Blue"
-            winning_team = Teams(3) if match_result == "Remake" else Teams(1) if winning_team == "Red" else Teams(2)
 
-            matches.append(Opgg_match(red_team, blue_team, winning_team))
+            matches.append(Opgg_match(red_team, blue_team, match_result))
+
         return matches
+
+    def get_n_players_with_tier(self, n: int, tier: Tier) -> list[Player]:
+        def get_n_players_on_page(n: int, page: int) -> list[Player]:
+            self.driver.get(f"https://www.op.gg/leaderboards/{'tier?tier=' + tier.value}&page={page}")
+
+            players_a = self.driver.find_elements(By.XPATH, '//a[@class="summoner-link"]')
+            players = [player_a.get_attribute('href').split("/")[5] for player_a in players_a[:n]]
+
+            return [Player(player.split("-")[0], player.split("-")[1]) for player in players]
+
+        players = []
+        for i in range(1, (n - 1) // 100 + 2):
+            players.extend(get_n_players_on_page(n % 100 if i * 100 > n else 100, i))
+
+        return players
+    
+    def get_player_mastery_at_champion(self, player: Player, champion: Champion) -> int:
+
+
 
 # scrapper = Scrapper("ml_project/chromedriver")
 scrapper = Scrapper("chromedriver.exe")
 
-for match in scrapper.get_n_recent_matches(70, Player("DBicek", "EUNE")):
-    print(match)
+for player2 in scrapper.get_n_players_with_tier(100, Tier.PLATINUM):
+    time.sleep(5)
+    for match in scrapper.get_n_recent_matches(50, player2):
+        print(match)
