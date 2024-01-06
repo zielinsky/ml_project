@@ -3,10 +3,9 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-import time
+import time, json, requests
 from classes import *
 from champions import Champion
-import json
 
 with open("config.json") as json_file:
     config = json.load(json_file)
@@ -20,14 +19,15 @@ class Scrapper:
         service = Service(executable_path=webdriver_path)
         chrome_options = webdriver.ChromeOptions()
         chrome_options.add_argument('--headless=new')
-        #chrome_options.add_experimental_option("detach", True)  # Browser stays opened after executing commands
+        # chrome_options.add_experimental_option("detach", True)  # Browser stays opened after executing commands
 
         self.driver = webdriver.Chrome(service=service, options=chrome_options)
-        #self.driver.maximize_window()
+        # self.driver.maximize_window()
 
     def get_only_solo_duo_games(self):
         ranked_game_type = self.driver.find_element(By.XPATH, '//button[@value="SOLORANKED"]')
         ranked_game_type.click()
+
     def get_n_recent_matches(self, n: int, player: Player) -> list[Opgg_match]:
         game_info_class_name = "css-j7qwjs e17hr80g0"
 
@@ -120,45 +120,57 @@ class Scrapper:
 
         return players
 
+    def get_player_puuid(self, player: Player) -> str:
+        api_url = f"https://europe.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{player.name}/{player.tag}?api_key={RIOT_API_KEY}"
+        response = requests.get(api_url)
+        return response.json()["puuid"]
+
     def get_player_mastery_at_champion(self, player: Player, champion: Champion) -> int:
-        pass
+        player_puuid = self.get_player_puuid(player)
+        api_url = f"https://eun1.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-puuid/{player_puuid}/by-champion/{champion.value}?api_key={RIOT_API_KEY}"
+        response = requests.get(api_url)
+        return response.json()["championPoints"]
 
     def get_player_info(self, player: Player) -> Player_info:
         self.driver.get(f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}")
 
-        #accept cookies
+        # accept cookies
         try:
-             WebDriverWait(self.driver, 3).until(
-                 EC.presence_of_element_located((By.CLASS_NAME, "css-47sehv"))
-             )
+            WebDriverWait(self.driver, 3).until(
+                EC.presence_of_element_located((By.CLASS_NAME, "css-47sehv"))
+            )
 
-             cookies = self.driver.find_element(By.CLASS_NAME, "css-47sehv")
-             cookies.click()
+            cookies = self.driver.find_element(By.CLASS_NAME, "css-47sehv")
+            cookies.click()
         except:
             pass
 
         self.get_only_solo_duo_games()
-        overall_win_rate = float(self.driver.find_element(By.CLASS_NAME, 'ratio').text[-3:-1])/100.0
-        #print(f"Winrate for {player.name}: {winrate} %")
+        overall_win_rate = float(self.driver.find_element(By.CLASS_NAME, 'ratio').text[-3:-1]) / 100.0
+        # print(f"Winrate for {player.name}: {winrate} %")
 
         rank = self.driver.find_element(By.CLASS_NAME, 'tier').text
-        #print(f"Player's rank for {player.name}: {rank}")
+        # print(f"Player's rank for {player.name}: {rank}")
 
         temp = self.driver.find_element(By.CLASS_NAME, 'win-lose').text
         total_games_played = int(temp[0:3]) + int(temp[5:8])
 
         level = int(self.driver.find_element(By.CLASS_NAME, 'level').text)
 
-        last_twenty_games_kda_ratio = float(self.driver.find_element(By.CLASS_NAME, 'stats-box').find_element(By.CLASS_NAME, 'ratio').text[:-2])
+        last_twenty_games_kda_ratio = float(
+            self.driver.find_element(By.CLASS_NAME, 'stats-box').find_element(By.CLASS_NAME, 'ratio').text[:-2])
 
-        last_twenty_games_kill_participation = float(self.driver.find_element(By.CLASS_NAME, 'kill-participantion').text[-3:-1])/100
+        last_twenty_games_kill_participation = float(
+            self.driver.find_element(By.CLASS_NAME, 'kill-participantion').text[-3:-1]) / 100
 
-        preferred_positions = [float(i.get_attribute('style').split(" ")[1][:-2])/100 for i in self.driver.find_elements(By.CLASS_NAME, 'gauge')]
-        preferred_positions = [(Lanes(i+1), preferred_positions[i]) for i in range(5)]
+        preferred_positions = [float(i.get_attribute('style').split(" ")[1][:-2]) / 100 for i in
+                               self.driver.find_elements(By.CLASS_NAME, 'gauge')]
+        preferred_positions = [(Lanes(i + 1), preferred_positions[i]) for i in range(5)]
 
-        last_twenty_games_win_rate = float(self.driver.find_element(By.CLASS_NAME, 'chart').text[:-1])/100
+        last_twenty_games_win_rate = float(self.driver.find_element(By.CLASS_NAME, 'chart').text[:-1]) / 100
 
-        return Player_info(player, overall_win_rate, rank, total_games_played, level, last_twenty_games_kda_ratio, last_twenty_games_kill_participation, preferred_positions, last_twenty_games_win_rate)
+        return Player_info(player, overall_win_rate, rank, total_games_played, level, last_twenty_games_kda_ratio,
+                           last_twenty_games_kill_participation, preferred_positions, last_twenty_games_win_rate)
 
     def get_champion_stats(self, champion: Champion) -> Champ_stats:
         pass
@@ -172,4 +184,6 @@ scrapper = Scrapper("chromedriver.exe")
 #     for match in scrapper.get_n_recent_matches(50, player2):
 #         print(match)
 
-scrapper.get_player_info(Player("DBicek", "EUNE")).show()
+# print(scrapper.get_player_info(Player("DBicek", "EUNE")))
+
+print(scrapper.get_player_mastery_at_champion(Player("DBicek", "EUNE"), Champion.TEEMO))
