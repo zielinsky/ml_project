@@ -19,12 +19,15 @@ class Scrapper:
     def __init__(self, webdriver_path: str):
         service = Service(executable_path=webdriver_path)
         chrome_options = webdriver.ChromeOptions()
-        # chrome_options.add_argument('--headless=new')
-        chrome_options.add_experimental_option("detach", True)  # Browser stays opened after executing commands
+        chrome_options.add_argument('--headless=new')
+        #chrome_options.add_experimental_option("detach", True)  # Browser stays opened after executing commands
 
         self.driver = webdriver.Chrome(service=service, options=chrome_options)
-        self.driver.maximize_window()
+        #self.driver.maximize_window()
 
+    def get_only_solo_duo_games(self):
+        ranked_game_type = self.driver.find_element(By.XPATH, '//button[@value="SOLORANKED"]')
+        ranked_game_type.click()
     def get_n_recent_matches(self, n: int, player: Player) -> list[Opgg_match]:
         game_info_class_name = "css-j7qwjs e17hr80g0"
 
@@ -42,8 +45,7 @@ class Scrapper:
             pass
 
         # Get only solo/duo games
-        ranked_game_type = self.driver.find_element(By.XPATH, '//button[@value="SOLORANKED"]')
-        ranked_game_type.click()
+        self.get_only_solo_duo_games()
 
         # Wait for match history to load on op.gg
         WebDriverWait(self.driver, 20).until(
@@ -122,7 +124,41 @@ class Scrapper:
         pass
 
     def get_player_info(self, player: Player) -> Player_info:
-        pass
+        self.driver.get(f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}")
+
+        #accept cookies
+        try:
+             WebDriverWait(self.driver, 3).until(
+                 EC.presence_of_element_located((By.CLASS_NAME, "css-47sehv"))
+             )
+
+             cookies = self.driver.find_element(By.CLASS_NAME, "css-47sehv")
+             cookies.click()
+        except:
+            pass
+
+        self.get_only_solo_duo_games()
+        overall_win_rate = float(self.driver.find_element(By.CLASS_NAME, 'ratio').text[-3:-1])/100.0
+        #print(f"Winrate for {player.name}: {winrate} %")
+
+        rank = self.driver.find_element(By.CLASS_NAME, 'tier').text
+        #print(f"Player's rank for {player.name}: {rank}")
+
+        temp = self.driver.find_element(By.CLASS_NAME, 'win-lose').text
+        total_games_played = int(temp[0:3]) + int(temp[5:8])
+
+        level = int(self.driver.find_element(By.CLASS_NAME, 'level').text)
+
+        last_twenty_games_kda_ratio = float(self.driver.find_element(By.CLASS_NAME, 'stats-box').find_element(By.CLASS_NAME, 'ratio').text[:-2])
+
+        last_twenty_games_kill_participation = float(self.driver.find_element(By.CLASS_NAME, 'kill-participantion').text[-3:-1])/100
+
+        preferred_positions = [float(i.get_attribute('style').split(" ")[1][:-2])/100 for i in self.driver.find_elements(By.CLASS_NAME, 'gauge')]
+        preferred_positions = [(Lanes(i+1), preferred_positions[i]) for i in range(5)]
+
+        last_twenty_games_win_rate = float(self.driver.find_element(By.CLASS_NAME, 'chart').text[:-1])/100
+
+        return Player_info(player, overall_win_rate, rank, total_games_played, level, last_twenty_games_kda_ratio, last_twenty_games_kill_participation, preferred_positions, last_twenty_games_win_rate)
 
     def get_champion_stats(self, champion: Champion) -> Champ_stats:
         pass
@@ -131,7 +167,9 @@ class Scrapper:
 # scrapper = Scrapper("ml_project/chromedriver")
 scrapper = Scrapper("chromedriver.exe")
 
-for player2 in scrapper.get_n_players_with_tier(100, Tier.PLATINUM):
-    time.sleep(5)
-    for match in scrapper.get_n_recent_matches(50, player2):
-        print(match)
+# for player2 in scrapper.get_n_players_with_tier(100, Tier.PLATINUM):
+#     time.sleep(5)
+#     for match in scrapper.get_n_recent_matches(50, player2):
+#         print(match)
+
+scrapper.get_player_info(Player("DBicek", "EUNE")).show()

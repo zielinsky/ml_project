@@ -69,7 +69,7 @@ class Player_stats_on_champ:
 class Player_info:
     player: Player
     overall_win_rate: float
-    rank: str
+    rank: str #type Tier? ===========================================================================================
     total_games_played: int
     level: int
     last_twenty_games_kda_ratio: float
