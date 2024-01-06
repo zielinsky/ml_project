@@ -19,11 +19,11 @@ class Scrapper:
     def __init__(self, webdriver_path: str):
         service = Service(executable_path=webdriver_path)
         chrome_options = webdriver.ChromeOptions()
-        chrome_options.add_argument('--headless=new')
-        # chrome_options.add_experimental_option("detach", True)  # Browser stays opened after executing commands
+        # chrome_options.add_argument('--headless=new')
+        chrome_options.add_experimental_option("detach", True)  # Browser stays opened after executing commands
 
         self.driver = webdriver.Chrome(service=service, options=chrome_options)
-        # self.driver.maximize_window()
+        self.driver.maximize_window()
 
     def get_n_recent_matches(self, n: int, player: Player) -> list[Opgg_match]:
         game_info_class_name = "css-j7qwjs e17hr80g0"
