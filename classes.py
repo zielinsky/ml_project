@@ -23,6 +23,7 @@ class Lanes(Enum):
 class Teams(Enum):
     RED = 1
     BLUE = 2
+    REMAKE = 3
 
 
 @dataclass
