@@ -161,7 +161,7 @@ class Champion(Enum):
     LILLIA = 876
 
 
-champion_dict = {
+champion_name_to_enum = {
     "annie": Champion.ANNIE,
     "olaf": Champion.OLAF,
     "galio": Champion.GALIO,
@@ -321,3 +321,5 @@ champion_dict = {
     "gwen": Champion.GWEN,
     "lillia": Champion.LILLIA,
 }
+
+champion_enum_to_name = {value: key for key, value in champion_name_to_enum.items()}
