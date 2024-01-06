@@ -4,8 +4,8 @@ from enum import Enum
 
 @dataclass
 class Player:
-    name : str
-    tag : str
+    name: str
+    tag: str
 
     def get_opgg_name(self):
         new_name = self.name.replace(" ", "%20")
@@ -18,7 +18,7 @@ class Lanes(Enum):
     MID = 3
     ADC = 4
     SUPPORT = 5
-    
+
 
 class Teams(Enum):
     RED = 1
@@ -27,9 +27,9 @@ class Teams(Enum):
 
 @dataclass
 class Opgg_match:
-    team_red : list[(str, Lanes)] #champion, lane
-    team_blue : list[(str, Lanes)]
-    winner : Teams
+    team_red: list[((Player, str), Lanes)]  # [((Player, Champion), Line))]
+    team_blue: list[((Player, str), Lanes)]
+    winner: Teams
     # kills : int
     # deaths : int
     # assists : int
@@ -40,31 +40,31 @@ class Opgg_match:
 
 @dataclass
 class Player_info:
-    player : Player
-    overall_win_rate : float
-    rank : str
-    total_games_played : int
-    level : int
-    last_twenty_games_kda_ratio : float
-    last_twenty_games_kill_participation : int
-    preferred_positions : list[(Lanes, int)]
-    last_twenty_games_win_rate : float
+    player: Player
+    overall_win_rate: float
+    rank: str
+    total_games_played: int
+    level: int
+    last_twenty_games_kda_ratio: float
+    last_twenty_games_kill_participation: int
+    preferred_positions: list[(Lanes, int)]
+    last_twenty_games_win_rate: float
 
 
 @dataclass
 class Player_stats_on_champ:
-    champion : str
-    total_games_played : int
-    win_rate : float
-    kda_ratio : float
-    average_gold_per_minute : float
-    average_cs_per_minute : float
+    champion: str
+    total_games_played: int
+    win_rate: float
+    kda_ratio: float
+    average_gold_per_minute: float
+    average_cs_per_minute: float
 
 
 @dataclass
 class Champ_stats:
-    tier : int
-    win_rate : float
-    ban_rate : float
-    pick_rate : float
-    matchup_win_rate : list[(str, float)]
+    tier: int
+    win_rate: float
+    ban_rate: float
+    pick_rate: float
+    matchup_win_rate: list[(str, float)]
