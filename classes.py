@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from champions import *
 from typing import Dict
 
@@ -73,9 +73,13 @@ class Player_info:
     total_games_played: int
     level: int
     last_twenty_games_kda_ratio: float
-    last_twenty_games_kill_participation: int
-    preferred_positions: list[(Lanes, int)]
+    last_twenty_games_kill_participation: float
+    preferred_positions: list[(Lanes, float)]
     last_twenty_games_win_rate: float
+
+    def show(self):
+        for key, value in asdict(self).items():
+            print(f"{key} - {value}")
 
 
 @dataclass
