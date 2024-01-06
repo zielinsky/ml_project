@@ -12,13 +12,20 @@ class Player:
         return f"{new_name}-{self.tag}"
 
 
-class Lanes(Enum):
+class Lane(Enum):
     TOP = 1
     JUNGLE = 2
     MID = 3
     ADC = 4
     SUPPORT = 5
 
+lane_name_to_enum = {
+    "top": Lane.TOP,
+    "jungle": Lane.JUNGLE,
+    "mid": Lane.MID,
+    "adc": Lane.ADC,
+    "support": Lane.SUPPORT
+}
 
 class MatchResult(Enum):
     RED = 1
@@ -46,11 +53,26 @@ class ChampionTier(Enum):
     TIER4 = 4
     TIER5 = 5
 
+champion_tier_name_to_enum = {
+    "5 Tier": ChampionTier.TIER5,
+    "4 Tier": ChampionTier.TIER4,
+    "3 Tier": ChampionTier.TIER3,
+    "2 Tier": ChampionTier.TIER2,
+    "1 Tier": ChampionTier.TIER1,
+    "OP Tier": ChampionTier.TIER1,
+
+    "Poziom 5": ChampionTier.TIER5,
+    "Poziom 4": ChampionTier.TIER4,
+    "Poziom 3": ChampionTier.TIER3,
+    "Poziom 2": ChampionTier.TIER2,
+    "Poziom 1": ChampionTier.TIER1,
+    "Poziom OP": ChampionTier.TIER1
+}
 
 @dataclass
 class Opgg_match:
-    team_red: list[((Player, str), Lanes)]  # [((Player, Champion), Line))]
-    team_blue: list[((Player, str), Lanes)]
+    team_red: list[((Player, str), Lane)]  # [((Player, Champion), Line))]
+    team_blue: list[((Player, str), Lane)]
     winner: MatchResult
 
 
@@ -74,7 +96,7 @@ class Player_info:
     level: int
     last_twenty_games_kda_ratio: float
     last_twenty_games_kill_participation: float
-    preferred_positions: list[(Lanes, float)]
+    preferred_positions: list[(Lane, float)]
     last_twenty_games_win_rate: float
 
     def show(self):
@@ -85,7 +107,7 @@ class Player_info:
 @dataclass
 class Champ_stats:
     champion: Champion
-    lane: Lanes
+    lane: Lane
     champion_tier: ChampionTier
     win_rate: float
     ban_rate: float

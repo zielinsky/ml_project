@@ -24,6 +24,17 @@ class Scrapper:
         self.driver = webdriver.Chrome(service=service, options=chrome_options)
         # self.driver.maximize_window()
 
+    def _accept_op_gg_cookies(self):
+        try:
+            WebDriverWait(self.driver, 3).until(
+                EC.presence_of_element_located((By.CLASS_NAME, "css-47sehv"))
+            )
+
+            cookies = self.driver.find_element(By.CLASS_NAME, "css-47sehv")
+            cookies.click()
+        except:
+            pass
+
     def get_only_solo_duo_games(self):
         ranked_game_type = self.driver.find_element(By.XPATH, '//button[@value="SOLORANKED"]')
         ranked_game_type.click()
@@ -34,15 +45,7 @@ class Scrapper:
         self.driver.get(f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}")
 
         # Agree to cookies
-        try:
-            WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.CLASS_NAME, "css-47sehv"))
-            )
-
-            cookies = self.driver.find_element(By.CLASS_NAME, "css-47sehv")
-            cookies.click()
-        except:
-            pass
+        self._accept_op_gg_cookies()
 
         # Get only solo/duo games
         self.get_only_solo_duo_games()
@@ -96,7 +99,7 @@ class Scrapper:
 
                 player_name = player.split("-")[0]
                 player_tag = player.split("-")[1]
-                players_info.append(((Player(player_name, player_tag), champion), Lanes(idx % 5 + 1)))
+                players_info.append(((Player(player_name, player_tag), champion), Lane(idx % 5 + 1)))
 
             red_team = players_info[0:5] if player_team == 'Red' else players_info[5:10]
             blue_team = players_info[5:10] if player_team == 'Red' else players_info[0:5]
@@ -135,46 +138,72 @@ class Scrapper:
         self.driver.get(f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}")
 
         # accept cookies
-        try:
-            WebDriverWait(self.driver, 3).until(
-                EC.presence_of_element_located((By.CLASS_NAME, "css-47sehv"))
-            )
-
-            cookies = self.driver.find_element(By.CLASS_NAME, "css-47sehv")
-            cookies.click()
-        except:
-            pass
+        self._accept_op_gg_cookies()
 
         self.get_only_solo_duo_games()
 
         page = self.driver.find_element(By.ID, '__next')
 
-        overall_win_rate = float(page.find_element(By.CLASS_NAME, 'ratio').text[-3:-1]) / 100.0
+        def find_on_page(name, one_element):
+            if one_element: return page.find_element(By.CLASS_NAME, name)
+            else: return page.find_elements(By.CLASS_NAME, name)
 
-        rank = page.find_element(By.CLASS_NAME, 'tier').text
+        overall_win_rate = float(find_on_page('ratio', True).text[-3:-1]) / 100.0
 
-        temp = page.find_element(By.CLASS_NAME, 'win-lose').text
+        rank = find_on_page('tier', True).text
+
+        temp = find_on_page('win-lose', True).text
         total_games_played = int(temp[0:3]) + int(temp[5:8])
 
-        level = int(page.find_element(By.CLASS_NAME, 'level').text)
+        level = int(find_on_page('level', True).text)
 
         last_twenty_games_kda_ratio = float(
-            page.find_element(By.CLASS_NAME, 'stats-box').find_element(By.CLASS_NAME, 'ratio').text[:-2])
+            find_on_page('stats-box', True).find_element(By.CLASS_NAME, 'ratio').text[:-2])
 
         last_twenty_games_kill_participation = float(
-            page.find_element(By.CLASS_NAME, 'kill-participantion').text[-3:-1]) / 100
+            find_on_page('kill-participantion', True).text[-3:-1]) / 100
 
         preferred_positions = [float(i.get_attribute('style').split(" ")[1][:-2]) / 100 for i in
-                               page.find_elements(By.CLASS_NAME, 'gauge')]
-        preferred_positions = [(Lanes(i + 1), preferred_positions[i]) for i in range(5)]
+                               find_on_page('gauge', False)]
+        preferred_positions = [(Lane(i + 1), preferred_positions[i]) for i in range(5)]
 
-        last_twenty_games_win_rate = float(page.find_element(By.CLASS_NAME, 'chart').text[:-1]) / 100
+        last_twenty_games_win_rate = float(find_on_page('chart', True).text[:-1]) / 100
 
         return Player_info(player, overall_win_rate, rank, total_games_played, level, last_twenty_games_kda_ratio,
                            last_twenty_games_kill_participation, preferred_positions, last_twenty_games_win_rate)
 
-    def get_champion_stats(self, champion: Champion) -> Champ_stats:
-        pass
+    def get_champion_stats(self, champion: Champion, tier: Tier) -> list[Champ_stats]:
+        #load page
+        self.driver.get(f"https://www.op.gg/champions/{champion_enum_to_name[champion]}/?tier={tier.value}")
+
+        # accept cookies
+        self._accept_op_gg_cookies()
+
+
+        lane_elements = self.driver.find_elements(By.XPATH, '//div[@data-key="FILTER-POSITION"]')
+
+        champion_stats = []
+
+        for lane_elem in lane_elements:
+            lane_name = lane_elem.get_attribute('data-value')
+            lane_a = lane_elem.find_element(By.TAG_NAME, "a")
+            lane_a.click()
+            time.sleep(3)
+
+            champion_tier = champion_tier_name_to_enum[self.driver.find_element(By.CLASS_NAME, "tier-info").text]
+
+            win_ban_pick_elems = lane_elem.find_elements(By.XPATH, '//div[@class="css-1bzqlwn e1psj5i31"]')
+            win_rate = float(win_ban_pick_elems[0].text.split("\n")[1].strip('%'))/100
+            pick_rate = float(win_ban_pick_elems[1].text.split("\n")[1].strip('%'))/100
+            ban_rate = float(win_ban_pick_elems[2].text.split("\n")[1].strip('%'))/100
+
+            print(lane_name, champion_tier, win_rate, pick_rate, ban_rate)
+
+
+            # match_up_win_rate = ...
+            # champion_stats.append(Champ_stats(champion, lane_name_to_enum[lane_name], ))
+        print(champion_stats)
+
 
 
 # scrapper = Scrapper("ml_project/chromedriver")
@@ -185,6 +214,6 @@ scrapper = Scrapper("chromedriver.exe")
 #     for match in scrapper.get_n_recent_matches(50, player2):
 #         print(match)
 
-scrapper.get_player_info(Player("DBicek", "EUNE")).show()
-
+#scrapper.get_player_info(Player("DBicek", "EUNE")).show()
+scrapper.get_champion_stats(Champion.MISS_FORTUNE, Tier.IRON)
 #print(scrapper.get_player_mastery_at_champion(Player("DBicek", "EUNE"), Champion.TEEMO))
