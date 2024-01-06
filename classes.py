@@ -1,6 +1,6 @@
 from dataclasses import dataclass
-from enum import Enum
-
+from champions import *
+from typing import Dict
 
 @dataclass
 class Player:
@@ -39,17 +39,30 @@ class Tier(Enum):
     CHALLENGER = 'challenger'
     ALL = ''
 
+class ChampionTier(Enum):
+    TIER1 = 1
+    TIER2 = 2
+    TIER3 = 3
+    TIER4 = 4
+    TIER5 = 5
+
+
 @dataclass
 class Opgg_match:
     team_red: list[((Player, str), Lanes)]  # [((Player, Champion), Line))]
     team_blue: list[((Player, str), Lanes)]
     winner: MatchResult
-    # kills : int
-    # deaths : int
-    # assists : int
-    # damage_dealt : int
-    # total_gold_earned : int
-    # cs_per_minute : float
+
+
+@dataclass
+class Player_stats_on_champ:
+    player: Player
+    champion: Champion
+    total_games_played: int
+    win_rate: float
+    kda_ratio: float
+    average_gold_per_minute: float
+    average_cs_per_minute: float
 
 
 @dataclass
@@ -66,19 +79,10 @@ class Player_info:
 
 
 @dataclass
-class Player_stats_on_champ:
-    champion: str
-    total_games_played: int
-    win_rate: float
-    kda_ratio: float
-    average_gold_per_minute: float
-    average_cs_per_minute: float
-
-
-@dataclass
 class Champ_stats:
-    tier: int
+    champion: Champion
+    champion_tier: ChampionTier
     win_rate: float
     ban_rate: float
     pick_rate: float
-    matchup_win_rate: list[(str, float)]
+    match_up_win_rate: Dict[Champion, float]

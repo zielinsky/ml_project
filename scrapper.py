@@ -5,6 +5,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time
 from classes import *
+from champions import Champion
 import json
 
 with open("config.json") as json_file:
@@ -116,9 +117,15 @@ class Scrapper:
             players.extend(get_n_players_on_page(n % 100 if i * 100 > n else 100, i))
 
         return players
-    
-    def get_player_mastery_at_champion(self, player: Player, champion: Champion) -> int:
 
+    def get_player_mastery_at_champion(self, player: Player, champion: Champion) -> int:
+        pass
+
+    def get_player_info(self, player: Player) -> Player_info:
+        pass
+
+    def get_champion_stats(self, champion: Champion) -> Champ_stats:
+        pass
 
 
 # scrapper = Scrapper("ml_project/chromedriver")
