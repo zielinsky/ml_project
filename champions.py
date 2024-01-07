@@ -159,6 +159,15 @@ class Champion(Enum):
     YONE = 777
     GWEN = 887
     LILLIA = 876
+    HWEI = 910
+    BRIAR = 233
+    NAAFIRI = 950
+    MILIO = 902
+    KSANTE = 421
+    NILAH = 895
+    BELVETH = 200
+    RENATAGLASC = 888
+    ZERI = 221
 
 
 champion_name_to_enum = {
@@ -320,6 +329,16 @@ champion_name_to_enum = {
     "yone": Champion.YONE,
     "gwen": Champion.GWEN,
     "lillia": Champion.LILLIA,
+    "hwei": Champion.HWEI,
+    "briar": Champion.BRIAR,
+    "naafiri": Champion.NAAFIRI,
+    "milio": Champion.MILIO,
+    "ksante": Champion.KSANTE,
+    "nilah": Champion.NILAH,
+    "belveth": Champion.BELVETH,
+    "renataglasc": Champion.RENATAGLASC,
+    "renata": Champion.RENATAGLASC,
+    "zeri": Champion.ZERI,
 }
 
 champion_enum_to_name = {value: key for key, value in champion_name_to_enum.items()}

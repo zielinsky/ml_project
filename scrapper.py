@@ -5,6 +5,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time, json, requests
 from classes import *
+import re
 from champions import Champion
 
 with open("config.json") as json_file:
@@ -12,6 +13,8 @@ with open("config.json") as json_file:
 
 RIOT_API_KEY = config['API_RIOT_KEY']
 
+def remove_non_alpha_characters(s):
+    return re.sub(r'[^a-zA-Z]', '', s)
 
 class Scrapper:
 
@@ -64,12 +67,12 @@ class Scrapper:
         except:
             pass
 
-        time.sleep(2)
+        time.sleep(3)
         # Open matches details
         button_list = self.driver.find_elements(By.CLASS_NAME, "btn-detail")[:n]
         for button in button_list:
             button.click()
-            time.sleep(0.001)
+            time.sleep(1)
 
         # Get matches elem
         matches_div = self.driver.find_elements(By.XPATH, '//div[@class="' + game_info_class_name + '"]')
@@ -89,7 +92,7 @@ class Scrapper:
 
             players_info = []  # [(Player(name='DBicek', tag='EUNE'), 'teemo', <Lanes.TOP: 1>), ...]
             for idx, player_div in enumerate(players_div):
-                champion = player_div.find_element(By.CLASS_NAME, "champion") \
+                champion_name = player_div.find_element(By.CLASS_NAME, "champion") \
                     .find_element(By.TAG_NAME, "a") \
                     .get_attribute('href').split("/")[4]
 
@@ -99,7 +102,7 @@ class Scrapper:
 
                 player_name = player.split("-")[0]
                 player_tag = player.split("-")[1]
-                players_info.append(((Player(player_name, player_tag), champion), Lane(idx % 5 + 1)))
+                players_info.append(((Player(player_name, player_tag), champion_name_to_enum[champion_name]), Lane(idx % 5 + 1)))
 
             red_team = players_info[0:5] if player_team == 'Red' else players_info[5:10]
             blue_team = players_info[5:10] if player_team == 'Red' else players_info[0:5]
@@ -145,8 +148,10 @@ class Scrapper:
         page = self.driver.find_element(By.ID, '__next')
 
         def find_on_page(name, one_element):
-            if one_element: return page.find_element(By.CLASS_NAME, name)
-            else: return page.find_elements(By.CLASS_NAME, name)
+            if one_element:
+                return page.find_element(By.CLASS_NAME, name)
+            else:
+                return page.find_elements(By.CLASS_NAME, name)
 
         overall_win_rate = float(find_on_page('ratio', True).text[-3:-1]) / 100.0
 
@@ -173,17 +178,19 @@ class Scrapper:
                            last_twenty_games_kill_participation, preferred_positions, last_twenty_games_win_rate)
 
     def get_champion_stats(self, champion: Champion, tier: Tier) -> list[Champ_stats]:
-        #load page
-        self.driver.get(f"https://www.op.gg/champions/{champion_enum_to_name[champion]}/?tier={tier.value}")
+        counter_picks_class = "css-12a3bv1 ee0p1b91"
+
+        # load page
+        self.driver.get(f"https://www.op.gg/champions/{champion_enum_to_name[champion]}/counters/?tier={tier.value}")
 
         # accept cookies
         self._accept_op_gg_cookies()
-
 
         lane_elements = self.driver.find_elements(By.XPATH, '//div[@data-key="FILTER-POSITION"]')
 
         champion_stats = []
 
+        # can change to go direct from url not click in button
         for lane_elem in lane_elements:
             lane_name = lane_elem.get_attribute('data-value')
             lane_a = lane_elem.find_element(By.TAG_NAME, "a")
@@ -193,27 +200,31 @@ class Scrapper:
             champion_tier = champion_tier_name_to_enum[self.driver.find_element(By.CLASS_NAME, "tier-info").text]
 
             win_ban_pick_elems = lane_elem.find_elements(By.XPATH, '//div[@class="css-1bzqlwn e1psj5i31"]')
-            win_rate = float(win_ban_pick_elems[0].text.split("\n")[1].strip('%'))/100
-            pick_rate = float(win_ban_pick_elems[1].text.split("\n")[1].strip('%'))/100
-            ban_rate = float(win_ban_pick_elems[2].text.split("\n")[1].strip('%'))/100
+            win_rate = float(win_ban_pick_elems[0].text.split("\n")[1].strip('%')) / 100
+            pick_rate = float(win_ban_pick_elems[1].text.split("\n")[1].strip('%')) / 100
+            ban_rate = float(win_ban_pick_elems[2].text.split("\n")[1].strip('%')) / 100
 
-            print(lane_name, champion_tier, win_rate, pick_rate, ban_rate)
+            # sort by win_rate?
+            counter_picks = {}
+            counter_picks_trs = self.driver.find_elements(By.XPATH, '//tr[@class="' + counter_picks_class + '"]')
+            for counter_pick_tr in counter_picks_trs:
+                counter_pick_champion = champion_name_to_enum[remove_non_alpha_characters(counter_pick_tr.text.split("\n")[0].lower())]
+                counter_pick_win_ratio = float(counter_pick_tr.text.split("\n")[1].split(" ")[0].strip("%"))
+                counter_picks[counter_pick_champion] = counter_pick_win_ratio
 
+            champion_stats.append(Champ_stats(champion, lane_name_to_enum[lane_name], champion_tier, win_rate, ban_rate, pick_rate, counter_picks))
 
-            # match_up_win_rate = ...
-            # champion_stats.append(Champ_stats(champion, lane_name_to_enum[lane_name], ))
-        print(champion_stats)
-
+        return champion_stats
 
 
 # scrapper = Scrapper("ml_project/chromedriver")
 scrapper = Scrapper("chromedriver.exe")
 
 # for player2 in scrapper.get_n_players_with_tier(100, Tier.PLATINUM):
-#     time.sleep(5)
-#     for match in scrapper.get_n_recent_matches(50, player2):
+#     time.sleep(6)
+#     for match in scrapper.get_n_recent_matches(15, player2):
 #         print(match)
 
-#scrapper.get_player_info(Player("DBicek", "EUNE")).show()
-scrapper.get_champion_stats(Champion.MISS_FORTUNE, Tier.IRON)
-#print(scrapper.get_player_mastery_at_champion(Player("DBicek", "EUNE"), Champion.TEEMO))
+# scrapper.get_player_info(Player("DBicek", "EUNE")).show()
+print(scrapper.get_champion_stats(Champion.MISS_FORTUNE, Tier.IRON))
+# print(scrapper.get_player_mastery_at_champion(Player("DBicek", "EUNE"), Champion.TEEMO))

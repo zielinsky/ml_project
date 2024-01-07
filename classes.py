@@ -59,20 +59,13 @@ champion_tier_name_to_enum = {
     "3 Tier": ChampionTier.TIER3,
     "2 Tier": ChampionTier.TIER2,
     "1 Tier": ChampionTier.TIER1,
-    "OP Tier": ChampionTier.TIER1,
-
-    "Poziom 5": ChampionTier.TIER5,
-    "Poziom 4": ChampionTier.TIER4,
-    "Poziom 3": ChampionTier.TIER3,
-    "Poziom 2": ChampionTier.TIER2,
-    "Poziom 1": ChampionTier.TIER1,
-    "Poziom OP": ChampionTier.TIER1
+    "OP Tier": ChampionTier.TIER1
 }
 
 @dataclass
 class Opgg_match:
-    team_red: list[((Player, str), Lane)]  # [((Player, Champion), Line))]
-    team_blue: list[((Player, str), Lane)]
+    team_red: list[((Player, Champion), Lane)]
+    team_blue: list[((Player, Champion), Lane)]
     winner: MatchResult
 
 
