@@ -339,6 +339,7 @@ champion_name_to_enum = {
     "renataglasc": Champion.RENATAGLASC,
     "renata": Champion.RENATAGLASC,
     "zeri": Champion.ZERI,
+    "monkeyking": Champion.WUKONG
 }
 
 champion_enum_to_name = {value: key for key, value in champion_name_to_enum.items()}

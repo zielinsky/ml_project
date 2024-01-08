@@ -64,10 +64,23 @@ champion_tier_name_to_enum = {
 
 @dataclass
 class Opgg_match:
-    team_red: list[((Player, Champion), Lane)]
-    team_blue: list[((Player, Champion), Lane)]
+    team_red: list[(Player, Champion, Lane)]
+    team_blue: list[(Player, Champion, Lane)]
     winner: MatchResult
 
+# @dataclass
+# class Opgg_match:
+#     player_red_1: (Player, Champion, Lane)
+#     player_red_2: (Player, Champion, Lane)
+#     player_red_3: (Player, Champion, Lane)
+#     player_red_4: (Player, Champion, Lane)
+#     player_red_5: (Player, Champion, Lane)
+#     player_blue_1: (Player, Champion, Lane)
+#     player_blue_2: (Player, Champion, Lane)
+#     player_blue_3: (Player, Champion, Lane)
+#     player_blue_4: (Player, Champion, Lane)
+#     player_blue_5: (Player, Champion, Lane)
+#     winner: MatchResult
 
 @dataclass
 class Player_stats_on_champ:

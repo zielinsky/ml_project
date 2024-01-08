@@ -1,3 +1,5 @@
+from datetime import datetime
+import os.path
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -7,14 +9,26 @@ import time, json, requests
 from classes import *
 import re
 from champions import Champion
+import csv
 
 with open("config.json") as json_file:
     config = json.load(json_file)
 
 RIOT_API_KEY = config['API_RIOT_KEY']
 
+
 def remove_non_alpha_characters(s):
     return re.sub(r'[^a-zA-Z]', '', s)
+
+
+def classes_to_csv(list_of_classes, csv_name):
+    list_of_classes = [asdict(cls) for cls in list_of_classes]
+    keys = list_of_classes[0].keys()
+    with open(f'data/{csv_name}{datetime.today().strftime("%Y-%m-%d--%H-%M-%S")}.csv', 'w', newline='') as output_file:
+        dict_writer = csv.DictWriter(output_file, keys)
+        dict_writer.writeheader()
+        dict_writer.writerows(list_of_classes)
+
 
 class Scrapper:
 
@@ -102,7 +116,8 @@ class Scrapper:
 
                 player_name = player.split("-")[0]
                 player_tag = player.split("-")[1]
-                players_info.append(((Player(player_name, player_tag), champion_name_to_enum[champion_name]), Lane(idx % 5 + 1)))
+                players_info.append(
+                    (Player(player_name, player_tag), champion_name_to_enum[champion_name], Lane(idx % 5 + 1)))
 
             red_team = players_info[0:5] if player_team == 'Red' else players_info[5:10]
             blue_team = players_info[5:10] if player_team == 'Red' else players_info[0:5]
@@ -208,13 +223,67 @@ class Scrapper:
             counter_picks = {}
             counter_picks_trs = self.driver.find_elements(By.XPATH, '//tr[@class="' + counter_picks_class + '"]')
             for counter_pick_tr in counter_picks_trs:
-                counter_pick_champion = champion_name_to_enum[remove_non_alpha_characters(counter_pick_tr.text.split("\n")[0].lower())]
+                counter_pick_champion = champion_name_to_enum[
+                    remove_non_alpha_characters(counter_pick_tr.text.split("\n")[0].lower())]
                 counter_pick_win_ratio = float(counter_pick_tr.text.split("\n")[1].split(" ")[0].strip("%"))
                 counter_picks[counter_pick_champion] = counter_pick_win_ratio
 
-            champion_stats.append(Champ_stats(champion, lane_name_to_enum[lane_name], champion_tier, win_rate, ban_rate, pick_rate, counter_picks))
+            champion_stats.append(
+                Champ_stats(champion, lane_name_to_enum[lane_name], champion_tier, win_rate, ban_rate, pick_rate,
+                            counter_picks))
 
         return champion_stats
+
+    def scrap_player_stats_to_csv(self, player: Player):
+        header = ['date',
+                  'player', 'overall_win_rate', 'rank', 'total_games_played', 'level',
+                  'last_twenty_games_kda_ratio',
+                  'last_twenty_games_kill_participation', 'preferred_positions', 'last_twenty_games_win_rate']
+
+        csvExists = os.path.exists('data/playersStats.csv')
+        date = datetime.today().strftime("%Y/%m/%d %H:%M:%S")
+        with open(f'data/playersStats.csv', 'a+', newline='') as file:
+            writer = csv.writer(file)
+
+            if not csvExists:
+                writer.writerow(header)
+
+            # duplicates can occur -> needs to catch it later
+            # if f"Player(name='{player.name}', tag='{player.tag}')" in file.read():
+            #     return
+
+            player_stats = self.get_player_info(player)
+            writer.writerow([date,
+                             player_stats.player, player_stats.overall_win_rate, player_stats.rank,
+                             player_stats.total_games_played,
+                             player_stats.level, player_stats.last_twenty_games_kda_ratio,
+                             player_stats.last_twenty_games_kill_participation,
+                             player_stats.preferred_positions, player_stats.last_twenty_games_win_rate])
+
+    def scrap_all_matches_info_to_csv(self, no_of_players: int, no_of_matches: int, tier: Tier):
+        header = ['date', 'match_winner',
+                  'player_red_1', 'player_red_2', 'player_red_3', 'player_red_4', 'player_red_5',
+                  'player_blue_1', 'player_blue_2', 'player_blue_3', 'player_blue_4', 'player_blue_5']
+
+        csvExists = os.path.exists('data/matches.csv')
+        with open(f'data/matches.csv', 'a', newline='') as file:
+            writer = csv.writer(file)
+
+            if not csvExists:
+                writer.writerow(header)
+            date = datetime.today().strftime("%Y/%m/%d %H:%M:%S")
+            # idea : dict players and at the end scrap_player_stats_to_csv all - no duplicates
+            for player in scrapper.get_n_players_with_tier(no_of_players, tier):
+                for match in scrapper.get_n_recent_matches(no_of_matches, player):
+                    for playerInfo in match.team_red:
+                        self.scrap_player_stats_to_csv(playerInfo[0])
+                    for playerInfo in match.team_blue:
+                        self.scrap_player_stats_to_csv(playerInfo[0])
+                    writer.writerow([date,
+                           match.winner,
+                           *match.team_red,
+                           *match.team_blue,
+                           ])
 
 
 # scrapper = Scrapper("ml_project/chromedriver")
@@ -222,9 +291,9 @@ scrapper = Scrapper("chromedriver.exe")
 
 # for player2 in scrapper.get_n_players_with_tier(100, Tier.PLATINUM):
 #     time.sleep(6)
-#     for match in scrapper.get_n_recent_matches(15, player2):
-#         print(match)
+scrapper.scrap_all_matches_info_to_csv(2, 2, Tier.ALL)
 
-scrapper.get_player_info(Player("DBicek", "EUNE")).show()
+# scrapper.get_player_info(Player("DBicek", "EUNE")).show()
 # print(scrapper.get_champion_stats(Champion.MISS_FORTUNE, Tier.IRON))
-print(scrapper.get_player_mastery_at_champion(Player("DBicek", "EUNE"), Champion.TEEMO))
+# print(scrapper.get_player_mastery_at_champion(Player("DBicek", "EUNE"), Champion.TEEMO))
+#
