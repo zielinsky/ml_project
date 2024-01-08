@@ -225,6 +225,6 @@ scrapper = Scrapper("chromedriver.exe")
 #     for match in scrapper.get_n_recent_matches(15, player2):
 #         print(match)
 
-# scrapper.get_player_info(Player("DBicek", "EUNE")).show()
-print(scrapper.get_champion_stats(Champion.MISS_FORTUNE, Tier.IRON))
-# print(scrapper.get_player_mastery_at_champion(Player("DBicek", "EUNE"), Champion.TEEMO))
+scrapper.get_player_info(Player("DBicek", "EUNE")).show()
+# print(scrapper.get_champion_stats(Champion.MISS_FORTUNE, Tier.IRON))
+print(scrapper.get_player_mastery_at_champion(Player("DBicek", "EUNE"), Champion.TEEMO))

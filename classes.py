@@ -73,6 +73,7 @@ class Opgg_match:
 class Player_stats_on_champ:
     player: Player
     champion: Champion
+    mastery: int
     total_games_played: int
     win_rate: float
     kda_ratio: float
