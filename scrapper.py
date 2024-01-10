@@ -1,5 +1,6 @@
 from datetime import datetime
 import os.path
+from ast import literal_eval
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -29,6 +30,12 @@ def classes_to_csv(list_of_classes, csv_name):
         dict_writer.writeheader()
         dict_writer.writerows(list_of_classes)
 
+def replace_all_enum_occurrences(input_str):
+    # Using regular expression to find and replace all enum occurrences in the string
+    pattern = r"<([A-Za-z0-9_.]+): \d+>"
+    # Replace each match with just the enum name
+    output_str = re.sub(pattern, r"\1", input_str)
+    return output_str
 
 class Scrapper:
 
@@ -58,14 +65,14 @@ class Scrapper:
         ranked_game_type = self.driver.find_element(By.XPATH, '//button[@value="SOLORANKED"]')
         ranked_game_type.click()
         time.sleep(1.5)
-        list_of_games = [i.text for i in self.driver.find_elements(By.CLASS_NAME, 'game-type')]
+        # list_of_games = [i.text for i in self.driver.find_elements(By.CLASS_NAME, 'game-type')]
         #print(list_of_games.count("Ranked Solo"), " ", len(list_of_games))
-        while list_of_games.count("Ranked Solo") != len(list_of_games):
-            list_of_games = [i.text for i in self.driver.find_elements(By.CLASS_NAME, 'game-type')]
+        # while list_of_games.count("Ranked Solo") != len(list_of_games):
+        #     list_of_games = [i.text for i in self.driver.find_elements(By.CLASS_NAME, 'game-type')]
             #print(list_of_games.count("Ranked Solo"), " ", len(list_of_games))
 
     def get_n_recent_matches(self, n: int, player: Player) -> list[Opgg_match]:
-        game_info_class_name = "css-j7qwjs e17hr80g0"
+        game_info_class_name = "css-j7qwjs e13s2rqz0"
 
         self.driver.get(f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}")
 
@@ -89,18 +96,18 @@ class Scrapper:
         except:
             pass
 
-        time.sleep(3)
-        # Open matches details
-        button_list = self.driver.find_elements(By.CLASS_NAME, "btn-detail")[:n]
-        for button in button_list:
-            button.click()
-            time.sleep(1)
+        time.sleep(4)
 
-        # Get matches elem
+        # Get matches divs
         matches_div = self.driver.find_elements(By.XPATH, '//div[@class="' + game_info_class_name + '"]')
 
         matches = []
         for match_div in matches_div[:n]:
+            # Open matches details
+            button = match_div.find_element(By.CLASS_NAME, "btn-detail")
+            button.click()
+            time.sleep(1)
+
             match_info = match_div.find_element(By.TAG_NAME, "th").text
             player_team = "Red" if "Red" in match_info else "Blue"
 
@@ -274,19 +281,20 @@ class Scrapper:
                   'player_blue_1', 'player_blue_2', 'player_blue_3', 'player_blue_4', 'player_blue_5']
 
         csvExists = os.path.exists('data/matches.csv')
-        with open(f'data/matches.csv', 'a', newline='') as file:
+        with open(f'data/matches.csv', 'a+', newline='') as file:
             writer = csv.writer(file)
 
             if not csvExists:
                 writer.writerow(header)
             date = datetime.today().strftime("%Y/%m/%d %H:%M:%S")
+
             # idea : dict players and at the end scrap_player_stats_to_csv all - no duplicates
             for player in scrapper.get_n_players_with_tier(no_of_players, tier):
                 for match in scrapper.get_n_recent_matches(no_of_matches, player):
-                    for playerInfo in match.team_red:
-                        self.scrap_player_stats_to_csv(playerInfo[0])
-                    for playerInfo in match.team_blue:
-                        self.scrap_player_stats_to_csv(playerInfo[0])
+                    # for playerInfo in match.team_red:
+                    #     self.scrap_player_stats_to_csv(playerInfo[0])
+                    # for playerInfo in match.team_blue:
+                    #     self.scrap_player_stats_to_csv(playerInfo[0])
                     writer.writerow([date,
                            match.winner,
                            *match.team_red,
@@ -294,14 +302,34 @@ class Scrapper:
                            ])
 
 
+    def get_matches_from_csv(self) -> list[Opgg_match]:
+
+        matches = []
+        with open(f'data/matches.csv', 'r', newline='') as file:
+            reader = csv.reader(file)
+
+            # skip header
+            next(reader, None)
+
+            for row in reader:
+                match_result = eval(row[1])
+
+                team_red = [eval(replace_all_enum_occurrences(player)) for player in row[2:7]]
+                team_blue = [eval(replace_all_enum_occurrences(player)) for player in row[7:12]]
+                matches.append(Opgg_match(team_red, team_blue, eval(row[1])))
+
+        return matches
+
 # scrapper = Scrapper("ml_project/chromedriver")
 scrapper = Scrapper("chromedriver.exe")
 
+print(scrapper.get_matches_from_csv())
 # for player2 in scrapper.get_n_players_with_tier(100, Tier.PLATINUM):
 #     time.sleep(6)
-#scrapper.scrap_all_matches_info_to_csv(2, 2, Tier.ALL)
 
-scrapper.get_player_info(Player("Roron0a Z0r0", "EUNE")).show()
+# scrapper.scrap_all_matches_info_to_csv(4, 15, Tier.ALL)
+
+# scrapper.get_player_info(Player("Roron0a Z0r0", "EUNE")).show()
 
 # print(scrapper.get_champion_stats(Champion.MISS_FORTUNE, Tier.IRON))
 # print(scrapper.get_player_mastery_at_champion(Player("DBicek", "EUNE"), Champion.TEEMO))
