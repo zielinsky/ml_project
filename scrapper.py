@@ -313,10 +313,10 @@ class Scrapper:
 
             for row in reader:
                 match_result = eval(row[1])
-
                 team_red = [eval(replace_all_enum_occurrences(player)) for player in row[2:7]]
                 team_blue = [eval(replace_all_enum_occurrences(player)) for player in row[7:12]]
-                matches.append(Opgg_match(team_red, team_blue, eval(row[1])))
+
+                matches.append(Opgg_match(team_red, team_blue, match_result))
 
         return matches
 
