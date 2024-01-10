@@ -247,15 +247,15 @@ class Scrapper:
 
         return champion_stats
 
-    def scrap_player_stats_to_csv(self, player: Player):
+    def scrap_player_info_to_csv(self, player: Player):
         header = ['date',
                   'player', 'overall_win_rate', 'rank', 'total_games_played', 'level',
                   'last_twenty_games_kda_ratio',
                   'last_twenty_games_kill_participation', 'preferred_positions', 'last_twenty_games_win_rate']
 
-        csvExists = os.path.exists('data/playersStats.csv')
+        csvExists = os.path.exists('data/playersInfo.csv')
         date = datetime.today().strftime("%Y/%m/%d %H:%M:%S")
-        with open(f'data/playersStats.csv', 'a+', newline='') as file:
+        with open(f'data/playersInfo.csv', 'a+', newline='') as file:
             writer = csv.writer(file)
 
             if not csvExists:
@@ -287,8 +287,8 @@ class Scrapper:
             date = datetime.today().strftime("%Y/%m/%d %H:%M:%S")
 
             # idea : dict players and at the end scrap_player_stats_to_csv all - no duplicates
-            for player in scrapper.get_n_players_with_tier(no_of_players, tier):
-                for match in scrapper.get_n_recent_matches(no_of_matches, player):
+            for player in self.get_n_players_with_tier(no_of_players, tier):
+                for match in self.get_n_recent_matches(no_of_matches, player):
                     # for playerInfo in match.team_red:
                     #     self.scrap_player_stats_to_csv(playerInfo[0])
                     # for playerInfo in match.team_blue:
@@ -309,12 +309,12 @@ class Scrapper:
                 writer.writerow(header)
             date = datetime.today().strftime("%Y/%m/%d %H:%M:%S")
 
-            for player in scrapper.get_n_players_with_tier(no_of_players, tier):
+            for player in self.get_n_players_with_tier(no_of_players, tier):
                     writer.writerow([date, player.name, player.tag])
 
 
-    def get_matches_from_csv(self) -> list[Opgg_match]:
 
+    def get_matches_from_csv(self) -> list[Opgg_match]:
         matches = []
         with open(f'data/matches.csv', 'r', newline='') as file:
             reader = csv.reader(file)
@@ -333,7 +333,20 @@ class Scrapper:
 
 
     def get_players_from_csv(self) -> list[Player]:
+        players = []
+        with open(f'data/players.csv', 'r', newline='') as file:
+            reader = csv.reader(file)
 
+            # skip header
+            next(reader, None)
+
+            for row in reader:
+                players.append(Player(row[1], row[2]))
+
+        return players
+
+
+    def get_players_info_from_csv(self) -> list[Player_info]:
         players = []
         with open(f'data/players.csv', 'r', newline='') as file:
             reader = csv.reader(file)
@@ -350,13 +363,14 @@ class Scrapper:
 scrapper = Scrapper("chromedriver.exe")
 
 # print(scrapper.get_matches_from_csv())
-print(scrapper.get_players_from_csv())
+# print(scrapper.get_players_from_csv())
 # for player2 in scrapper.get_n_players_with_tier(100, Tier.PLATINUM):
 #     time.sleep(6)
 
 # scrapper.scrap_all_matches_info_to_csv(4, 15, Tier.ALL)
 
 # scrapper.get_player_info(Player("Roron0a Z0r0", "EUNE")).show()
+# print(scrapper.get_n_recent_matches(15, Player("DBicek", "EUNE")))
 
 # print(scrapper.get_champion_stats(Champion.MISS_FORTUNE, Tier.IRON))
 # print(scrapper.get_player_mastery_at_champion(Player("DBicek", "EUNE"), Champion.TEEMO))
