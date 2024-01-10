@@ -35,11 +35,13 @@ class Scrapper:
     def __init__(self, webdriver_path: str):
         service = Service(executable_path=webdriver_path)
         chrome_options = webdriver.ChromeOptions()
+        chrome_options.add_experimental_option('prefs', {'intl.accept_languages': 'en,en_US'})
         chrome_options.add_argument('--headless=new')
         # chrome_options.add_experimental_option("detach", True)  # Browser stays opened after executing commands
 
         self.driver = webdriver.Chrome(service=service, options=chrome_options)
         # self.driver.maximize_window()
+
 
     def _accept_op_gg_cookies(self):
         try:
@@ -55,6 +57,12 @@ class Scrapper:
     def get_only_solo_duo_games(self):
         ranked_game_type = self.driver.find_element(By.XPATH, '//button[@value="SOLORANKED"]')
         ranked_game_type.click()
+        time.sleep(1.5)
+        list_of_games = [i.text for i in self.driver.find_elements(By.CLASS_NAME, 'game-type')]
+        #print(list_of_games.count("Ranked Solo"), " ", len(list_of_games))
+        while list_of_games.count("Ranked Solo") != len(list_of_games):
+            list_of_games = [i.text for i in self.driver.find_elements(By.CLASS_NAME, 'game-type')]
+            #print(list_of_games.count("Ranked Solo"), " ", len(list_of_games))
 
     def get_n_recent_matches(self, n: int, player: Player) -> list[Opgg_match]:
         game_info_class_name = "css-j7qwjs e17hr80g0"
@@ -163,38 +171,31 @@ class Scrapper:
             return page.find_element(By.CLASS_NAME, name)
 
         try:
-            print(find_on_page('win-lose-container').text)
+            find_on_page('win-lose-container')
         except:
-            print("nah ===========================") #return player()
+            return Player_info(player, None, None, None, None, None, None, None, None) #unranked player
 
-        chars_to_strip = 'QWERTYUIOPASDFGHJKLZXCVBNM qwertyuiopasdfghjklzxcvbnm,:%'
-        # .strip(chars_to_strip)
+        chars_to_strip = 'QWERTYUIOPASDFGHJKLZXCVBNM qwertyuiopasdfghjklzxcvbnm,%:/;'
 
-        overall_win_rate = float(find_on_page('ratio').text.strip(chars_to_strip)) / 100
+        overall_win_rate = float(find_on_page('ratio').text.strip(chars_to_strip)) / 100 #Win Rate 17%
 
-        rank = None #find_on_page('tier').text
+        rank = find_on_page('tier').text #Gold 4
 
-        temp = find_on_page('win-lose').text
-        if(temp != "Win - Lose"):
-            temp = temp.split(" ")
-            total_games_played = int(temp[0].strip(chars_to_strip)) + int(temp[1].strip(chars_to_strip))
-        else:
-            total_games_played = 0
+        temp = find_on_page('win-lose').text.replace('W', '').replace('L', '').split(" ") #15W 17L
+        total_games_played = int(temp[0]) + int(temp[1])
 
-
-        level = int(find_on_page('level').text)
+        level = int(find_on_page('level').text) #573
 
         last_twenty_games_kda_ratio = float(
-            find_on_page('stats-box').find_element(By.CLASS_NAME, 'ratio').text[:-2])
+            find_on_page('stats-box').find_element(By.CLASS_NAME, 'ratio').text[:-2]) #2.14:1
 
         last_twenty_games_kill_participation = float(
-            find_on_page('kill-participantion').text[-3:-1]) / 100
+            find_on_page('kill-participantion').text.strip(chars_to_strip)) / 100 #P/Kill 43%
 
-        preferred_positions = [float(i.get_attribute('style').split(" ")[1][:-2]) / 100 for i in
-                               page.find_elements(By.CLASS_NAME, 'gauge')]
-        preferred_positions = [(Lane(i + 1), preferred_positions[i]) for i in range(5)]
+        preferred_positions = [(lane, float(pos.get_attribute('style').strip(chars_to_strip)) / 100)
+                               for lane, pos in zip(Lane, page.find_elements(By.CLASS_NAME, 'gauge'))] #height: 5.56%;
 
-        last_twenty_games_win_rate = float(find_on_page('chart').text[:-1]) / 100
+        last_twenty_games_win_rate = float(find_on_page('chart').text.strip(chars_to_strip)) / 100 #12%
 
         return Player_info(player, overall_win_rate, rank, total_games_played, level, last_twenty_games_kda_ratio,
                            last_twenty_games_kill_participation, preferred_positions, last_twenty_games_win_rate)
@@ -301,6 +302,7 @@ scrapper = Scrapper("chromedriver.exe")
 #scrapper.scrap_all_matches_info_to_csv(2, 2, Tier.ALL)
 
 scrapper.get_player_info(Player("Roron0a Z0r0", "EUNE")).show()
+
 # print(scrapper.get_champion_stats(Champion.MISS_FORTUNE, Tier.IRON))
 # print(scrapper.get_player_mastery_at_champion(Player("DBicek", "EUNE"), Champion.TEEMO))
 #
