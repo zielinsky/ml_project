@@ -1,16 +1,14 @@
 from datetime import datetime
-import os.path
-from ast import literal_eval
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time, json, requests
-from classes import *
+import os.path
 import re
-from champions import Champion
 import csv
+from classes import *
 
 with open("config.json") as json_file:
     config = json.load(json_file)
@@ -300,6 +298,19 @@ class Scrapper:
                            *match.team_red,
                            *match.team_blue,
                            ])
+    def scrap_players_to_csv(self, no_of_players: int, tier: Tier):
+        header = ['date', 'player_name', 'player_tag']
+
+        csvExists = os.path.exists('data/players.csv')
+        with open(f'data/players.csv', 'a+', newline='') as file:
+            writer = csv.writer(file)
+
+            if not csvExists:
+                writer.writerow(header)
+            date = datetime.today().strftime("%Y/%m/%d %H:%M:%S")
+
+            for player in scrapper.get_n_players_with_tier(no_of_players, tier):
+                    writer.writerow([date, player.name, player.tag])
 
 
     def get_matches_from_csv(self) -> list[Opgg_match]:
@@ -320,10 +331,26 @@ class Scrapper:
 
         return matches
 
+
+    def get_players_from_csv(self) -> list[Player]:
+
+        players = []
+        with open(f'data/players.csv', 'r', newline='') as file:
+            reader = csv.reader(file)
+
+            # skip header
+            next(reader, None)
+
+            for row in reader:
+                players.append(Player(row[1], row[2]))
+
+        return players
+
 # scrapper = Scrapper("ml_project/chromedriver")
 scrapper = Scrapper("chromedriver.exe")
 
-print(scrapper.get_matches_from_csv())
+# print(scrapper.get_matches_from_csv())
+print(scrapper.get_players_from_csv())
 # for player2 in scrapper.get_n_players_with_tier(100, Tier.PLATINUM):
 #     time.sleep(6)
 
