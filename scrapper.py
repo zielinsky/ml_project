@@ -628,7 +628,7 @@ class Scrapper:
                 if saveAllInfo:
                     for player, champion, lane in match.team_red + match.team_blue:
                         self.scrap_player_info_to_csv(player)
-                        # scrap player_stats_on_champion also
+                        # scrap player stats on champion to csv here
 
                 writer.writerow(
                     [
@@ -687,30 +687,32 @@ class Scrapper:
 
         return players
 
-    def get_players_info_from_csv(self) -> list[Player_info]:
-        players = []
-        with open(f"data/players.csv", "r", newline="") as file:
+    def get_players_info_from_csv(self) -> dict[Player, Player_info]:
+        players_info = {}
+        with open(f"data/playersInfo.csv", "r", newline="") as file:
             reader = csv.reader(file)
 
             # skip header
             next(reader, None)
 
             for row in reader:
-                players.append(Player(row[1], row[2]))
+                pass
 
-        return players
+        return players_info
 
 
 scrapper = Scrapper("chromedriver.exe")
-print(
-    scrapper.get_player_stats_on_specific_champion(
-        Player("DBicek", "EUNE"), Champion.TEEMO
-    )
-)
+# print(
+#     scrapper.get_player_stats_on_specific_champion(
+#         Player("DBicek", "EUNE"), Champion.TEEMO
+#     )
+# )
+scrapper.scrap_players_to_csv(2000, Tier.IRON)
 # print(scrapper.get_matches_from_csv())
+
 # print(scrapper.get_players_from_csv())
-# for player2 in scrapper.get_n_players_with_tier(100, Tier.PLATINUM):
-#     time.sleep(6)
+# for player2 in scrapper.get_n_players_with_tier(2, Tier.PLATINUM):
+#     scrapper.scrap_player_info_to_csv(player2)
 
 # scrapper.scrap_all_matches_info_to_csv(4, 15, Tier.ALL)
 
