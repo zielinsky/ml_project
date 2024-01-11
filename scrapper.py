@@ -36,11 +36,11 @@ class Scrapper:
         service = Service(executable_path=webdriver_path)
         chrome_options = webdriver.ChromeOptions()
         chrome_options.add_experimental_option('prefs', {'intl.accept_languages': 'en,en_US'})
-        # chrome_options.add_argument('--headless=new')
-        chrome_options.add_experimental_option("detach", True)  # Browser stays opened after executing commands
+        chrome_options.add_argument('--headless=new')
+        # chrome_options.add_experimental_option("detach", True)  # Browser stays opened after executing commands
 
         self.driver = webdriver.Chrome(service=service, options=chrome_options)
-        self.driver.maximize_window()
+        # self.driver.maximize_window()
 
 
     def _accept_op_gg_cookies(self):
@@ -244,73 +244,7 @@ class Scrapper:
 
 
     # Dane ze splita 2 season 2023
-    # def get_player_stats_on_champions(self, player : Player) -> list[Player_stats_on_champ]:
-    #     self.driver.get(f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}/champions")
-    #     self._accept_op_gg_cookies()
-
-    #     # Wait until Season button is clickable        
-    #     WebDriverWait(self.driver, 5).until(
-    #         EC.presence_of_element_located((By.XPATH, '//*[@id="content-container"]/div/div/div[1]/div[2]/div/button'))
-    #     )
-    #     season_choice_button = self.driver.find_element(By.XPATH, '//*[@id="content-container"]/div/div/div[1]/div[2]/div/button')
-    #     season_choice_button.click()
-
-    #     # Wait until Season 2023 S2 button is clickable
-    #     WebDriverWait(self.driver, 5).until(
-    #         EC.presence_of_element_located((By.XPATH, '//*[@id="content-container"]/div/div/div[1]/div[2]/div/div/button[2]'))
-    #     )
-    #     season2023_split2_button = self.driver.find_element(By.XPATH, '//*[@id="content-container"]/div/div/div[1]/div[2]/div/div/button[2]')
-    #     season2023_split2_button.click()
-
-    #     # Wait until Ranked Solo button is clickable
-    #     WebDriverWait(self.driver, 5).until(
-    #         EC.presence_of_element_located((By.XPATH, '//*[@id="content-container"]/div/div/div[2]/button[2]'))
-    #     )
-    #     ranked_solo_games_button = self.driver.find_element(By.XPATH, '//*[@id="content-container"]/div/div/div[2]/button[2]')
-    #     ranked_solo_games_button.click()
-
-    #     # Wait until stats are loaded
-    #     WebDriverWait(self.driver, 5).until(
-    #         EC.presence_of_element_located((By.XPATH, '//*[@id="content-container"]/div/table/colgroup'))
-    #     )
-
-    #     # time.sleep(2)
-    #     stats_on_champions = [elem for elem in self.driver.find_elements(By.XPATH, '//*[@id="content-container"]/div/table/tbody/*')]
-
-
-    #     list_of_stats_on_champs = []
-    #     for stat in stats_on_champions:
-    #         stat_to_list = stat.text.split("\n")
-    #         # print(stat_to_list)
-    #         try:
-    #             wins = int(stat.find_element(By.CLASS_NAME, "winratio-graph__text left").text[:-1])
-    #         except:
-    #             wins = 0
-    #             stat_to_list.insert(2, "0W")
-    #         try:
-    #             losses = int(stat.find_element(By.CLASS_NAME, "winratio-graph__text right").text[:-1])
-    #         except:
-    #             losses = 0
-    #             stat_to_list.insert(3, "0L")
-            
-    #         champion = stat_to_list[1]
-    #         total_games_played = wins + losses
-    #         win_rate = float(stat_to_list[4][:-1])
-    #         kda_ratio = float(stat_to_list[5][:-2])
-    #         average_gold_per_minute = float(stat_to_list[7].split(" ")[1][1:-1])
-    #         average_cs_per_minute = float(stat_to_list[7].split(" ")[3][1:-1])
-
-    #         list_of_stats_on_champs.append(Player_stats_on_champ(player,
-    #                                                              champion,
-    #                                                              1000,
-    #                                                              total_games_played,
-    #                                                              win_rate,
-    #                                                              kda_ratio,
-    #                                                              average_gold_per_minute,
-    #                                                              average_cs_per_minute))
-    #     print(list_of_stats_on_champs[0].__str__())
-
-    def get_player_stats_on_specific_champion(self, player : Player, champion : Champion) -> list[Player_stats_on_champ]:
+    def get_player_stats_on_champions(self, player : Player) -> list[Player_stats_on_champ]:
         self.driver.get(f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}/champions")
         self._accept_op_gg_cookies()
 
@@ -341,7 +275,7 @@ class Scrapper:
         )
 
         # time.sleep(2)
-        stats_on_champion = self.driver.find_element(By.XPATH, '//*[@id="content-container"]/div/table/tbody/*')
+        stats_on_champions = [elem for elem in self.driver.find_elements(By.XPATH, '//*[@id="content-container"]/div/table/tbody/*')]
 
 
         list_of_stats_on_champs = []
@@ -375,6 +309,85 @@ class Scrapper:
                                                                  average_gold_per_minute,
                                                                  average_cs_per_minute))
         print(list_of_stats_on_champs[0].__str__())
+
+    # Data from Season 2023 Split 2
+    def get_player_stats_on_specific_champion(self, player : Player, champion : Champion) -> Player_stats_on_champ:
+        self.driver.get(f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}/champions")
+        self._accept_op_gg_cookies()
+
+        champion_string = champion_enum_to_name[champion]
+
+        # Wait until Season button is clickable        
+        WebDriverWait(self.driver, 5).until(
+            EC.presence_of_element_located((By.XPATH, '//*[@id="content-container"]/div/div/div[1]/div[2]/div/button'))
+        )
+        season_choice_button = self.driver.find_element(By.XPATH, '//*[@id="content-container"]/div/div/div[1]/div[2]/div/button')
+        season_choice_button.click()
+
+        # Wait until Season 2023 S2 button is clickable
+        WebDriverWait(self.driver, 5).until(
+            EC.presence_of_element_located((By.XPATH, '//*[@id="content-container"]/div/div/div[1]/div[2]/div/div/button[2]'))
+        )
+        season2023_split2_button = self.driver.find_element(By.XPATH, '//*[@id="content-container"]/div/div/div[1]/div[2]/div/div/button[2]')
+        season2023_split2_button.click()
+
+        # Wait until Ranked Solo button is clickable
+        WebDriverWait(self.driver, 5).until(
+            EC.presence_of_element_located((By.XPATH, '//*[@id="content-container"]/div/div/div[2]/button[2]'))
+        )
+        ranked_solo_games_button = self.driver.find_element(By.XPATH, '//*[@id="content-container"]/div/div/div[2]/button[2]')
+        ranked_solo_games_button.click()
+
+        # Wait until stats are loaded
+        WebDriverWait(self.driver, 5).until(
+            EC.presence_of_element_located((By.XPATH, '//*[@id="content-container"]/div/table/colgroup'))
+        )
+
+        # time.sleep(2)
+        stats_on_all_champions = [elem for elem in self.driver.find_elements(By.XPATH, '//*[@id="content-container"]/div/table/tbody/*')]
+
+        desired_stats = []
+        for stat in stats_on_all_champions:
+            if champion_string in stat.text.lower():
+                desired_stats = stat
+
+        desired_stats_list = desired_stats.text.split("\n")
+        if len(desired_stats_list) == 0:
+            return Player_stats_on_champ(player, champion_string, 0, 0, 0, 0, 0, 0)
+
+        """
+        Work around of stats where 0 games are won or 0 games are lost on a specific champion.
+        In these cases information of 0W or 0L isn't in site's HTML so I insert an artificial 0W/0L info to make it work.
+        """
+        if "W" not in desired_stats_list[2]:
+            wins = 0
+            desired_stats_list.insert(2, "0W")
+        else:
+            wins = int(desired_stats_list[2][:-1])
+        
+        if "L" not in desired_stats_list[3]:
+            losses = 0
+            desired_stats_list.insert(3, "0L")
+        else:
+            losses = int(desired_stats_list[3][:-1])
+
+        total_games_played = wins + losses
+        win_rate = float(desired_stats_list[4][:-1])
+        kda_ratio = float(desired_stats_list[5][:-2])
+        average_gold_per_minute = float(desired_stats_list[7].split(" ")[1][1:-1])
+        average_cs_per_minute = float(desired_stats_list[7].split(" ")[3][1:-1])
+
+        mastery = self.get_player_mastery_at_champion(player, champion)
+
+        result = (Player_stats_on_champ(player,
+                                        champion_string,
+                                        mastery,
+                                        total_games_played,
+                                        win_rate,
+                                        kda_ratio,
+                                        average_gold_per_minute,
+                                        average_cs_per_minute))
+        return result
 
 
     def scrap_player_stats_to_csv(self, player: Player):
@@ -437,7 +450,7 @@ scrapper = Scrapper("ml_project/chromedriver")
 #scrapper.scrap_all_matches_info_to_csv(2, 2, Tier.ALL)
 
 # scrapper.get_player_info(Player("Roron0a Z0r0", "EUNE")).show()
-scrapper.get_player_stats_on_champions(Player("DBicek", "EUNE"))
+print(scrapper.get_player_stats_on_specific_champion(Player("DBicek", "EUNE"), Champion.TEEMO))
 
 # print(scrapper.get_champion_stats(Champion.MISS_FORTUNE, Tier.IRON))
 # print(scrapper.get_player_mastery_at_champion(Player("DBicek", "EUNE"), Champion.TEEMO))
