@@ -506,7 +506,6 @@ class Scrapper:
 
         return players
 
-# scrapper = Scrapper("ml_project/chromedriver")
 scrapper = Scrapper("chromedriver.exe")
 
 # print(scrapper.get_matches_from_csv())
