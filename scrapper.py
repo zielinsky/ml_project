@@ -19,6 +19,8 @@ RIOT_API_KEY = config['API_RIOT_KEY']
 def remove_non_alpha_characters(s):
     return re.sub(r'[^a-zA-Z]', '', s)
 
+def remove_duplicates(t):
+    return list(dict.fromkeys(t))
 
 def classes_to_csv(list_of_classes, csv_name):
     list_of_classes = [asdict(cls) for cls in list_of_classes]
@@ -261,9 +263,6 @@ class Scrapper:
             if not csvExists:
                 writer.writerow(header)
 
-            # duplicates can occur -> needs to catch it later
-            # if f"Player(name='{player.name}', tag='{player.tag}')" in file.read():
-            #     return
 
             player_stats = self.get_player_info(player)
             writer.writerow([date,
@@ -273,7 +272,7 @@ class Scrapper:
                              player_stats.last_twenty_games_kill_participation,
                              player_stats.preferred_positions, player_stats.last_twenty_games_win_rate])
 
-    def scrap_all_matches_info_to_csv(self, no_of_players: int, no_of_matches: int, tier: Tier):
+    def scrap_n_player_matches_to_csv(self, player: Player, n: int, saveAllInfo: bool = False):
         header = ['date', 'match_winner',
                   'player_red_1', 'player_red_2', 'player_red_3', 'player_red_4', 'player_red_5',
                   'player_blue_1', 'player_blue_2', 'player_blue_3', 'player_blue_4', 'player_blue_5']
@@ -286,18 +285,17 @@ class Scrapper:
                 writer.writerow(header)
             date = datetime.today().strftime("%Y/%m/%d %H:%M:%S")
 
-            # idea : dict players and at the end scrap_player_stats_to_csv all - no duplicates
-            for player in self.get_n_players_with_tier(no_of_players, tier):
-                for match in self.get_n_recent_matches(no_of_matches, player):
-                    # for playerInfo in match.team_red:
-                    #     self.scrap_player_stats_to_csv(playerInfo[0])
-                    # for playerInfo in match.team_blue:
-                    #     self.scrap_player_stats_to_csv(playerInfo[0])
-                    writer.writerow([date,
-                           match.winner,
-                           *match.team_red,
-                           *match.team_blue,
-                           ])
+            for match in self.get_n_recent_matches(n, player):
+                if saveAllInfo:
+                    for (player, champion, lane) in match.team_red + match.team_blue:
+                        self.scrap_player_info_to_csv(player)
+                        # scrap player_stats_on_champion also
+
+                writer.writerow([date,
+                       match.winner,
+                       *match.team_red,
+                       *match.team_blue,
+                       ])
     def scrap_players_to_csv(self, no_of_players: int, tier: Tier):
         header = ['date', 'player_name', 'player_tag']
 
