@@ -274,41 +274,43 @@ class Scrapper:
             EC.presence_of_element_located((By.XPATH, '//*[@id="content-container"]/div/table/colgroup'))
         )
 
-        # time.sleep(2)
         stats_on_champions = [elem for elem in self.driver.find_elements(By.XPATH, '//*[@id="content-container"]/div/table/tbody/*')]
 
 
         list_of_stats_on_champs = []
         for stat in stats_on_champions:
-            stat_to_list = stat.text.split("\n")
-            # print(stat_to_list)
-            try:
-                wins = int(stat.find_element(By.CLASS_NAME, "winratio-graph__text left").text[:-1])
-            except:
+            desired_stats_list = stat.text.split("\n")
+
+            if "W" not in desired_stats_list[2]:
                 wins = 0
-                stat_to_list.insert(2, "0W")
-            try:
-                losses = int(stat.find_element(By.CLASS_NAME, "winratio-graph__text right").text[:-1])
-            except:
-                losses = 0
-                stat_to_list.insert(3, "0L")
+                desired_stats_list.insert(2, "0W")
+            else:
+                wins = int(desired_stats_list[2][:-1])
             
-            champion = stat_to_list[1]
+            if "L" not in desired_stats_list[3]:
+                losses = 0
+                desired_stats_list.insert(3, "0L")
+            else:
+                losses = int(desired_stats_list[3][:-1])
+            
+            champion = champion_name_to_enum[desired_stats_list[1].lower().replace(" ", "").replace("'", "")]
             total_games_played = wins + losses
-            win_rate = float(stat_to_list[4][:-1])
-            kda_ratio = float(stat_to_list[5][:-2])
-            average_gold_per_minute = float(stat_to_list[7].split(" ")[1][1:-1])
-            average_cs_per_minute = float(stat_to_list[7].split(" ")[3][1:-1])
+            win_rate = float(desired_stats_list[4][:-1])
+            kda_ratio = float(desired_stats_list[5][:-2])
+            average_gold_per_minute = float(desired_stats_list[7].split(" ")[1][1:-1])
+            average_cs_per_minute = float(desired_stats_list[7].split(" ")[3][1:-1])
+            mastery = self.get_player_mastery_at_champion(player, champion)
 
             list_of_stats_on_champs.append(Player_stats_on_champ(player,
                                                                  champion,
-                                                                 1000,
+                                                                 mastery,
                                                                  total_games_played,
                                                                  win_rate,
                                                                  kda_ratio,
                                                                  average_gold_per_minute,
                                                                  average_cs_per_minute))
-        print(list_of_stats_on_champs[0].__str__())
+            
+        return list_of_stats_on_champs
 
     # Data from Season 2023 Split 2
     def get_player_stats_on_specific_champion(self, player : Player, champion : Champion) -> Player_stats_on_champ:
@@ -376,7 +378,6 @@ class Scrapper:
         kda_ratio = float(desired_stats_list[5][:-2])
         average_gold_per_minute = float(desired_stats_list[7].split(" ")[1][1:-1])
         average_cs_per_minute = float(desired_stats_list[7].split(" ")[3][1:-1])
-
         mastery = self.get_player_mastery_at_champion(player, champion)
 
         result = (Player_stats_on_champ(player,
@@ -450,7 +451,7 @@ scrapper = Scrapper("ml_project/chromedriver")
 #scrapper.scrap_all_matches_info_to_csv(2, 2, Tier.ALL)
 
 # scrapper.get_player_info(Player("Roron0a Z0r0", "EUNE")).show()
-print(scrapper.get_player_stats_on_specific_champion(Player("DBicek", "EUNE"), Champion.TEEMO))
+scrapper.get_player_stats_on_champions(Player("DBicek", "EUNE"))
 
 # print(scrapper.get_champion_stats(Champion.MISS_FORTUNE, Tier.IRON))
 # print(scrapper.get_player_mastery_at_champion(Player("DBicek", "EUNE"), Champion.TEEMO))
