@@ -9,6 +9,7 @@ import os.path
 import re
 import csv
 from classes import *
+import pandas as pd
 
 with open("config.json") as json_file:
     config = json.load(json_file)
@@ -704,16 +705,44 @@ class Scrapper:
         return players_info
 
     def get_champ_stats_from_csv(self) -> Dict[Lane, Dict[Champion, Champ_stats]]:
-        pass
+        files_list = [
+            "data/champStatsTop.csv",
+            "data/champStatsJungle.csv",
+            "data/champStatsMid.csv",
+            "data/champStatsAdc.csv",
+            "data/champStatsSupport.csv",
+        ]
+        
+        # Result dict as in function return type
+        res = {}
+        # Iterate over all lanes
+        for lane in Lane:
+            # Choose a correct file from list
+            file = files_list[Lane.lane - 1]
+            # nested dict (Dict[Champion, Champ_stats])
+            lane_dict = {}
+            with open(file, "r") as f:
+                reader = csv.reader(f)
+                header = reader[0]
+                row_length = len(reader[0])
+                # Skip the header row
+                next(reader, None)
+                for row in reader:
+                    for i in range(row_length):
+                        lane_dict[header[i]] = row[i]
+            res[lane] = lane_dict
+
+        return res
 
 
-scrapper = Scrapper("chromedriver.exe")
+scrapper = Scrapper("ml_project/chromedriver")
+scrapper.get_champ_stats_from_csv()
 # print(
 #     scrapper.get_player_stats_on_specific_champion(
 #         Player("DBicek", "EUNE"), Champion.TEEMO
 #     )
 # )
-scrapper.scrap_players_to_csv(2000, Tier.IRON)
+# scrapper.scrap_players_to_csv(2000, Tier.IRON)
 # print(scrapper.get_matches_from_csv())
 
 # print(scrapper.get_players_from_csv())
