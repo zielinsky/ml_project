@@ -653,6 +653,9 @@ class Scrapper:
             for player in self.get_n_players_with_tier(no_of_players, tier):
                 writer.writerow([date, player.name, player.tag])
 
+    def scrap_champ_stats_to_csv(self, tier: Tier):
+        pass
+
     def get_matches_from_csv(self) -> list[Opgg_match]:
         matches = []
         with open(f"data/matches.csv", "r", newline="") as file:
@@ -699,6 +702,9 @@ class Scrapper:
                 pass
 
         return players_info
+
+    def get_champ_stats_from_csv(self) -> Dict[Lane, Dict[Champion, Champ_stats]]:
+        pass
 
 
 scrapper = Scrapper("chromedriver.exe")
