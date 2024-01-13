@@ -11,6 +11,17 @@ import csv
 from classes import *
 import pandas as pd
 
+PLAYERS_CSV_PATH = "data/players.csv"
+PLAYERS_INFO_CSV_PATH = "data/playerInfo.csv"
+MATCHES_CSV_PATH = "data/matches.csv"
+CHAMPION_STATS_CSVS_PATHS = [
+    "ml_project/data/champStats/Top.csv",
+    "ml_project/data/champStats/Jungle.csv",
+    "ml_project/data/champStats/Mid.csv",
+    "ml_project/data/champStats/Adc.csv",
+    "ml_project/data/champStats/Support.csv",
+]
+
 with open("config.json") as json_file:
     config = json.load(json_file)
 
@@ -302,7 +313,9 @@ class Scrapper:
             lane_name = lane_elem.get_attribute("data-value")
             lane_a = lane_elem.find_element(By.TAG_NAME, "a")
             lane_a.click()
-            time.sleep(3)
+            time.sleep(
+                3
+            )  # ================================== WTF ========================================
 
             champion_tier = champion_tier_name_to_enum[
                 self.driver.find_element(By.CLASS_NAME, "tier-info").text
@@ -575,9 +588,9 @@ class Scrapper:
             "last_twenty_games_win_rate",
         ]
 
-        csvExists = os.path.exists("data/playersInfo.csv")
+        csvExists = os.path.exists(PLAYERS_INFO_CSV_PATH)
         date = datetime.today().strftime("%Y/%m/%d %H:%M:%S")
-        with open(f"data/playersInfo.csv", "a+", newline="") as file:
+        with open(PLAYERS_INFO_CSV_PATH, "a+", newline="") as file:
             writer = csv.writer(file)
 
             if not csvExists:
@@ -617,8 +630,8 @@ class Scrapper:
             "player_blue_5",
         ]
 
-        csvExists = os.path.exists("data/matches.csv")
-        with open(f"data/matches.csv", "a+", newline="") as file:
+        csvExists = os.path.exists(MATCHES_CSV_PATH)
+        with open(MATCHES_CSV_PATH, "a+", newline="") as file:
             writer = csv.writer(file)
 
             if not csvExists:
@@ -643,8 +656,8 @@ class Scrapper:
     def scrap_players_to_csv(self, no_of_players: int, tier: Tier):
         header = ["date", "player_name", "player_tag"]
 
-        csvExists = os.path.exists("data/players.csv")
-        with open(f"data/players.csv", "a+", newline="") as file:
+        csvExists = os.path.exists(PLAYERS_CSV_PATH)
+        with open(PLAYERS_CSV_PATH, "a+", newline="") as file:
             writer = csv.writer(file)
 
             if not csvExists:
@@ -655,11 +668,70 @@ class Scrapper:
                 writer.writerow([date, player.name, player.tag])
 
     def scrap_champ_stats_to_csv(self, tier: Tier):
-        pass
+        champion_column_names = [
+            champion_enum_to_name[champion] for champion in Champion
+        ]
+        header = [
+            "champion_name",
+            "tier",
+            "win_ratio",
+            "ban_ratio",
+            "pick_ratio",
+        ] + champion_column_names
+
+        csvExistsList = [
+            os.path.exists(CHAMPION_STATS_CSVS_PATHS[idx]) for idx in range(5)
+        ]
+
+        # csvExists = os.path.exists(PLAYERS_CSV_PATH)
+        with open(CHAMPION_STATS_CSVS_PATHS[0], "a+", newline="") as top, open(
+            CHAMPION_STATS_CSVS_PATHS[1], "a+", newline=""
+        ) as jungle, open(CHAMPION_STATS_CSVS_PATHS[2], "a+", newline="") as mid, open(
+            CHAMPION_STATS_CSVS_PATHS[3], "a+", newline=""
+        ) as adc, open(
+            CHAMPION_STATS_CSVS_PATHS[4], "a+", newline=""
+        ) as support:
+            writers = [csv.writer(file) for file in [top, jungle, mid, adc, support]]
+
+            for idx, writer in enumerate(writers):
+                if not csvExistsList[idx]:
+                    writer.writerow(header)
+
+            for champion in Champion:
+                champ_stats_list = self.get_champion_stats(champion, tier)
+
+                for champ_stats in champ_stats_list:
+                    champion_name = champion_enum_to_name[champ_stats.champion]
+                    lane = champ_stats.lane
+                    champion_tier = champion_tier_enum_to_name[
+                        champ_stats.champion_tier
+                    ]
+                    win_rate = champ_stats.win_rate
+                    ban_rate = champ_stats.ban_rate
+                    pick_rate = champ_stats.pick_rate
+                    match_up_win_rate = champ_stats.match_up_win_rate
+
+                    for champion in Champion:
+                        if not champion in match_up_win_rate:
+                            match_up_win_rate[champion] = -1.0
+
+                    writers[lane.value - 1].writerow(
+                        [
+                            champion_name,
+                            champion_tier,
+                            win_rate,
+                            ban_rate,
+                            pick_rate,
+                            *[
+                                match_up_win_rate[champion_name_to_enum[champion_name]]
+                                for champion_name in champion_column_names
+                            ],
+                        ]
+                    )
 
     def get_matches_from_csv(self) -> list[Opgg_match]:
         matches = []
-        with open(f"data/matches.csv", "r", newline="") as file:
+        with open(MATCHES_CSV_PATH, "r", newline="") as file:
             reader = csv.reader(file)
 
             # skip header
@@ -680,7 +752,7 @@ class Scrapper:
 
     def get_players_from_csv(self) -> list[Player]:
         players = []
-        with open(f"data/players.csv", "r", newline="") as file:
+        with open(PLAYERS_CSV_PATH, "r", newline="") as file:
             reader = csv.reader(file)
 
             # skip header
@@ -693,7 +765,7 @@ class Scrapper:
 
     def get_players_info_from_csv(self) -> dict[Player, Player_info]:
         players_info = {}
-        with open(f"data/playersInfo.csv", "r", newline="") as file:
+        with open(PLAYERS_INFO_CSV_PATH, "r", newline="") as file:
             reader = csv.reader(file)
 
             # skip header
@@ -704,39 +776,46 @@ class Scrapper:
 
         return players_info
 
+    # Assuming that no matchup equals -1
     def get_champ_stats_from_csv(self) -> Dict[Lane, Dict[Champion, Champ_stats]]:
-        files_list = [
-            "data/champStatsTop.csv",
-            "data/champStatsJungle.csv",
-            "data/champStatsMid.csv",
-            "data/champStatsAdc.csv",
-            "data/champStatsSupport.csv",
-        ]
-        
         # Result dict as in function return type
         res = {}
         # Iterate over all lanes
         for lane in Lane:
             # Choose a correct file from list
-            file = files_list[Lane.lane - 1]
+            file = CHAMPION_STATS_CSVS_PATHS[lane.value - 1]
             # nested dict (Dict[Champion, Champ_stats])
             lane_dict = {}
-            with open(file, "r") as f:
-                reader = csv.reader(f)
-                header = reader[0]
-                row_length = len(reader[0])
-                # Skip the header row
-                next(reader, None)
+            with open(file, "r", newline="") as f:
+                # reader = csv.reader(f)
+                # get header info and skip to next line
+                header = pd.read_csv(file, nrows=1)
+                print(header)
+                row_length = len(header)
+
                 for row in reader:
-                    for i in range(row_length):
-                        lane_dict[header[i]] = row[i]
+                    champion = champion_name_to_enum[row[0]]
+                    tier = champion_tier_name_to_enum[row[1]]
+                    winrate = float(row[2])
+                    banrate = float(row[3])
+                    pickrate = float(row[4])
+                    matchups = {
+                        champion_name_to_enum[header[i]]: float(row[i])
+                        for i in range(5, row_length)
+                    }
+                    lane_dict[champion] = Champ_stats(
+                        champion, lane, tier, winrate, banrate, pickrate, matchups
+                    )
+
             res[lane] = lane_dict
 
         return res
 
 
 scrapper = Scrapper("ml_project/chromedriver")
-scrapper.get_champ_stats_from_csv()
+# scrapper.scrap_champ_stats_to_csv(Tier.PLATINUM)
+print(scrapper.get_champ_stats_from_csv())
+# scrapper.get_champ_stats_from_csv()
 # print(
 #     scrapper.get_player_stats_on_specific_champion(
 #         Player("DBicek", "EUNE"), Champion.TEEMO

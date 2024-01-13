@@ -191,6 +191,7 @@ champion_name_to_enum = {
     "tristana": Champion.TRISTANA,
     "warwick": Champion.WARWICK,
     "nunuandwillump": Champion.NUNU_AND_WILLUMP,
+    "nunuwillump": Champion.NUNU_AND_WILLUMP,
     "nunu": Champion.NUNU_AND_WILLUMP,
     "missfortune": Champion.MISS_FORTUNE,
     "ashe": Champion.ASHE,
@@ -339,7 +340,7 @@ champion_name_to_enum = {
     "renataglasc": Champion.RENATAGLASC,
     "renata": Champion.RENATAGLASC,
     "zeri": Champion.ZERI,
-    "monkeyking": Champion.WUKONG
+    "monkeyking": Champion.WUKONG,
 }
 
 champion_enum_to_name = {value: key for key, value in champion_name_to_enum.items()}
