@@ -11,6 +11,16 @@ import csv
 from classes import *
 import pandas as pd
 
+# =========================== CONFIGS ===========================
+with open("config.json") as json_file:
+    config = json.load(json_file)
+
+RIOT_API_KEY = config["API_RIOT_KEY"]
+CHROME_DRIVER = config["CHROME_DRIVER"]
+# =========================== CONFIGS ===========================
+
+
+# ========================== CONSTANTS ==========================
 PLAYERS_CSV_PATH = "data/players.csv"
 PLAYERS_INFO_CSV_PATH = "data/playerInfo.csv"
 MATCHES_CSV_PATH = "data/matches.csv"
@@ -21,12 +31,7 @@ CHAMPION_STATS_CSVS_PATHS = [
     "data/champStats/Adc.csv",
     "data/champStats/Support.csv",
 ]
-
-with open("config.json") as json_file:
-    config = json.load(json_file)
-
-RIOT_API_KEY = config["API_RIOT_KEY"]
-CHROME_DRIVER = config["CHROME_DRIVER"]
+# ========================== CONSTANTS ==========================
 
 
 def remove_non_alpha_characters(s):
