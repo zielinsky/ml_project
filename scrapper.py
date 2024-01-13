@@ -15,17 +15,18 @@ PLAYERS_CSV_PATH = "data/players.csv"
 PLAYERS_INFO_CSV_PATH = "data/playerInfo.csv"
 MATCHES_CSV_PATH = "data/matches.csv"
 CHAMPION_STATS_CSVS_PATHS = [
-    "ml_project/data/champStats/Top.csv",
-    "ml_project/data/champStats/Jungle.csv",
-    "ml_project/data/champStats/Mid.csv",
-    "ml_project/data/champStats/Adc.csv",
-    "ml_project/data/champStats/Support.csv",
+    "data/champStats/Top.csv",
+    "data/champStats/Jungle.csv",
+    "data/champStats/Mid.csv",
+    "data/champStats/Adc.csv",
+    "data/champStats/Support.csv",
 ]
 
 with open("config.json") as json_file:
     config = json.load(json_file)
 
 RIOT_API_KEY = config["API_RIOT_KEY"]
+CHROME_DRIVER = config["CHROME_DRIVER"]
 
 
 def remove_non_alpha_characters(s):
@@ -787,11 +788,11 @@ class Scrapper:
             # nested dict (Dict[Champion, Champ_stats])
             lane_dict = {}
             with open(file, "r", newline="") as f:
-                # reader = csv.reader(f)
-                # get header info and skip to next line
-                header = pd.read_csv(file, nrows=1)
-                print(header)
+                reader = csv.reader(f)
+                header = pd.read_csv(file).columns
                 row_length = len(header)
+
+                next(reader, None)
 
                 for row in reader:
                     champion = champion_name_to_enum[row[0]]
@@ -812,9 +813,10 @@ class Scrapper:
         return res
 
 
-scrapper = Scrapper("ml_project/chromedriver")
+scrapper = Scrapper(CHROME_DRIVER)
+
 # scrapper.scrap_champ_stats_to_csv(Tier.PLATINUM)
-print(scrapper.get_champ_stats_from_csv())
+
 # scrapper.get_champ_stats_from_csv()
 # print(
 #     scrapper.get_player_stats_on_specific_champion(
