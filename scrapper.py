@@ -74,7 +74,7 @@ class Scrapper:
         chrome_options.add_experimental_option(
             "prefs", {"intl.accept_languages": "en,en_US"}
         )
-        # chrome_options.add_argument("--headless=new")
+        chrome_options.add_argument("--headless=new")
         chrome_options.add_experimental_option(
             "detach", True
         )  # Browser stays opened after executing commands
@@ -256,6 +256,7 @@ class Scrapper:
         try:
             find_on_page("win-lose-container")
         except:
+            # TODO We need to skip matches that have any unranked players
             return Player_info(
                 player, None, None, None, None, None, None, None, None
             )  # unranked player
@@ -530,29 +531,28 @@ class Scrapper:
 
         # Wait until stats are loaded
         WebDriverWait(self.driver, 15).until(
-            EC.presence_of_element_located(
-                (By.XPATH, '//*[@id="content-container"]/div/table/tbody')
+            EC.visibility_of_element_located(
+                (By.XPATH, '//*[@id="content-container"]/div/table/colgroup')
             )
         )
 
-        # time.sleep(2)
-        stats_on_all_champions = [
-            elem
-            for elem in self.driver.find_elements(
-                By.XPATH, '//*[@id="content-container"]/div/table/tbody/*'
-            )
-        ]
+        # time.sleep(1)
+        stats_on_all_champions = self.driver.find_elements(
+            By.XPATH, '//*[@id="content-container"]/div/table/tbody/*'
+        )
 
-        desired_stats = []
+        desired_stats = None
         for stat in stats_on_all_champions:
             if champion_string in stat.text.lower():
                 desired_stats = stat
+        # TODO Make sure that no empty stats are being saved because the elements take too long to load. The condition
+        #  of desired_stats is None is a bandaid so the program doesn't crash for now.
 
-        # TODO needs to catch when player doesnt have stats on any champ
-        if len(stats_on_all_champions) == 0:
-            return Player_stats_on_champ(
-                player, champion_string, -1, -1, -1, -1, -1, -1
-            )
+        if (
+            "There are no results recorded." in stats_on_all_champions[0].text
+            or desired_stats is None
+        ):
+            return Player_stats_on_champ(player, champion_string, 0, 0, 0, 0, 0, 0)
 
         desired_stats_list = desired_stats.text.split("\n")
 
@@ -1149,10 +1149,10 @@ class Scrapper:
 
 scrapper = Scrapper(CHROME_DRIVER)
 
-scrapper.scrap_players_and_their_matches_to_csv(5, 1, Tier.GOLD)
+# scrapper.scrap_players_and_their_matches_to_csv(1, 1, Tier.EMERALD)
 
 # scrapper.scrap_data_necessary_to_process_matches()
-
+scrapper.scrap_champ_stats_to_csv(Tier.EMERALD)
 # scrapper.scrap_player_stats_on_champ_to_csv(
 #     Player("LilZiele", "EUNE"), Champion.KINDRED
 # )
