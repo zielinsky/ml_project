@@ -776,6 +776,7 @@ class Scrapper:
             self.scrap_n_player_matches_to_csv(player, num_of_matches)
 
     def scrap_data_necessary_to_process_matches(self, matches: list[Opgg_match]):
+        # Przydałoby się sprawdzać czy nie robimy jakiś duplikatów graczy oraz tupli (Player, Champion)
         def scrap_data_necessary_to_process_match(match: Opgg_match):
             match_records = match.team_blue + match.team_red
             for player, champion, lane in match_records:
@@ -791,12 +792,16 @@ class Scrapper:
         self.scrap_data_necessary_to_process_matches(matches)
         players_info = self.get_players_info_from_csv()
         players_stats_on_champ = self.get_players_stats_on_champ_from_csv()
-        champion_stats = self.get_champ_stats_from_csv()
+        champions_stats = self.get_champ_stats_from_csv()
         data_vector = []
         for match in matches:
-            match_record = match.team_blue + match.team_red
+            blue_team = match.team_blue
+            red_team = match.team_red
             match_result = match.winner
-            # for player, champion, lane in match_record:
+            for player, champion, lane in blue_team:
+                player_info = players_info[player]
+                player_stats_on_champ = players_stats_on_champ[player][champion]
+                champion_stats = champions_stats[lane][champion]
 
     @staticmethod
     def get_matches_from_csv() -> list[Opgg_match]:

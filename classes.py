@@ -158,3 +158,4 @@ class DataVector:
     red_team_players_entries: list[DataEntryForPlayer]
     red_team_champions_entries: list[ChampionEntry]
     red_team_team_entry: DataEntryTeam
+    match_result: MatchResult
