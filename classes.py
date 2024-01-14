@@ -120,3 +120,41 @@ class Champ_stats:
     ban_rate: float
     pick_rate: float
     match_up_win_rate: Dict[Champion, float]
+
+
+@dataclass
+class DataEntryForPlayer:
+    player_mastery_on_champ: int
+    player_wr_on_champ: float
+    player_kda_ratio_on_champ: float
+    player_gpm_on_champ: float
+    player_cspm_on_champ: float
+    player_overall_wr: float
+
+
+@dataclass
+class DataEntryTeam:
+    total_mastery: int
+    average_mastery: float
+    average_player_wr: float
+    average_champion_specific_player_wr: float
+    average_champion_specific_match_up_wr: float
+
+
+@dataclass
+class ChampionEntry:
+    tier: int
+    wr: float
+    br: float
+    pr: float
+    match_up_wr: float
+
+
+@dataclass
+class DataVector:
+    blue_team_players_entries: list[DataEntryForPlayer]
+    blue_team_champions_entries: list[ChampionEntry]
+    blue_team_team_entry: DataEntryTeam
+    red_team_players_entries: list[DataEntryForPlayer]
+    red_team_champions_entries: list[ChampionEntry]
+    red_team_team_entry: DataEntryTeam

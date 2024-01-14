@@ -94,16 +94,17 @@ class Scrapper:
             By.XPATH, '//button[@value="SOLORANKED"]'
         )
         ranked_game_type.click()
-        time.sleep(1.5)
-        list_of_games = [
-            i.text for i in self.driver.find_elements(By.CLASS_NAME, "game-type")
-        ]
-        # print(list_of_games.count("Ranked Solo"), " ", len(list_of_games))
-        while list_of_games.count("Ranked Solo") != len(list_of_games):
-            list_of_games = [
-                i.text for i in self.driver.find_elements(By.CLASS_NAME, "game-type")
-            ]
-            # print(list_of_games.count("Ranked Solo"), " ", len(list_of_games))
+        # time.sleep(1.5)
+        # list_of_games = [
+        #     i.text for i in self.driver.find_elements(By.CLASS_NAME, "game-type")
+        # ]
+        time.sleep(1)
+        # # print(list_of_games.count("Ranked Solo"), " ", len(list_of_games))
+        # while list_of_games.count("Ranked Solo") != len(list_of_games):
+        #     list_of_games = [
+        #         i.text for i in self.driver.find_elements(By.CLASS_NAME, "game-type")
+        #     ]
+        #     # print(list_of_games.count("Ranked Solo"), " ", len(list_of_games))
 
     def get_n_recent_matches(self, n: int, player: Player) -> list[Opgg_match]:
         game_info_class_name = "css-j7qwjs e13s2rqz0"
@@ -766,6 +767,37 @@ class Scrapper:
                 ]
             )
 
+    def scrap_players_and_their_matches_to_csv(
+        self, num_of_players: int, num_of_matches: int, tier: Tier
+    ):
+        self.scrap_players_to_csv(num_of_players, tier)
+        players = self.get_players_from_csv()
+        for player in players:
+            self.scrap_n_player_matches_to_csv(player, num_of_matches)
+
+    def scrap_data_necessary_to_process_matches(self, matches: list[Opgg_match]):
+        def scrap_data_necessary_to_process_match(match: Opgg_match):
+            match_records = match.team_blue + match.team_red
+            for player, champion, lane in match_records:
+                self.scrap_player_info_to_csv(player)
+                self.scrap_player_stats_on_champ_to_csv(player, champion)
+
+        matches = self.get_matches_from_csv()
+        for match in matches:
+            scrap_data_necessary_to_process_match(match)
+
+    def scrap_data_vector_based_on_matches(self):
+        matches = self.get_matches_from_csv()
+        self.scrap_data_necessary_to_process_matches(matches)
+        players_info = self.get_players_info_from_csv()
+        players_stats_on_champ = self.get_players_stats_on_champ_from_csv()
+        champion_stats = self.get_champ_stats_from_csv()
+        data_vector = []
+        for match in matches:
+            match_record = match.team_blue + match.team_red
+            match_result = match.winner
+            # for player, champion, lane in match_record:
+
     @staticmethod
     def get_matches_from_csv() -> list[Opgg_match]:
         matches = []
@@ -872,7 +904,7 @@ class Scrapper:
         return res
 
     @staticmethod
-    def get_player_stats_on_champ_from_csv() -> (
+    def get_players_stats_on_champ_from_csv() -> (
         Dict[Player, Dict[Champion, Player_stats_on_champ]]
     ):
         with open(PLAYER_STATS_ON_CHAMP_CSV_PATH, "r", newline="") as file:
@@ -915,7 +947,7 @@ scrapper = Scrapper(CHROME_DRIVER)
 # scrapper.scrap_player_stats_on_champ_to_csv(
 #     Player("LilZiele", "EUNE"), Champion.KINDRED
 # )
-print(scrapper.get_player_stats_on_champ_from_csv())
+# print(scrapper.get_player_stats_on_champ_from_csv())
 # scrapper.scrap_champ_stats_to_csv(Tier.PLATINUM)
 
 # print(scrapper.get_champ_stats_from_csv())
@@ -933,7 +965,7 @@ print(scrapper.get_player_stats_on_champ_from_csv())
 # for player2 in scrapper.get_n_players_with_tier(2, Tier.PLATINUM):
 #     scrapper.scrap_player_info_to_csv(player2)
 
-# scrapper.scrap_all_matches_info_to_csv(4, 15, Tier.ALL)
+scrapper.scrap_players_and_their_matches_to_csv(10, 2, Tier.PLATINUM)
 
 # scrapper.get_player_info(Player("Roron0a Z0r0", "EUNE")).show()
 # print(scrapper.get_n_recent_matches(15, Player("DBicek", "EUNE")))
