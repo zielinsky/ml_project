@@ -4,6 +4,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from dataclasses import make_dataclass
 import time, json, requests
 import os.path
 import re
@@ -618,9 +619,7 @@ class Scrapper:
                 ]
             )
 
-    def scrap_n_player_matches_to_csv(
-        self, player: Player, n: int, saveAllInfo: bool = False
-    ):
+    def scrap_n_player_matches_to_csv(self, player: Player, n: int):
         header = [
             "date",
             "match_winner",
@@ -645,11 +644,6 @@ class Scrapper:
             date = datetime.today().strftime("%Y/%m/%d %H:%M:%S")
 
             for match in self.get_n_recent_matches(n, player):
-                if saveAllInfo:
-                    for player, champion, lane in match.team_red + match.team_blue:
-                        self.scrap_player_info_to_csv(player)
-                        # scrap player stats on champion to csv here
-
                 writer.writerow(
                     [
                         date,
@@ -770,19 +764,38 @@ class Scrapper:
         return players
 
     def get_players_info_from_csv(self) -> dict[Player, Player_info]:
-        players_info = {}
         with open(PLAYERS_INFO_CSV_PATH, "r", newline="") as file:
             reader = csv.reader(file)
 
             # skip header
             next(reader, None)
-
+            players_info = {}
             for row in reader:
-                pass
+                player = eval(row[1])
+                wr = float(row[2])
+                rank = row[3]
+                total_games_played = int(row[4])
+                level = int(row[5])
+                last_twenty_games_kda_ratio = float(row[6])
+                last_twenty_games_kill_participation = float(row[7])
+                preferred_positions = eval(replace_all_enum_occurrences(row[8]))
+                last_twenty_games_win_rate = float(row[9])
+
+                players_info[player] = Player_info(
+                    player,
+                    wr,
+                    rank,
+                    total_games_played,
+                    level,
+                    last_twenty_games_kda_ratio,
+                    last_twenty_games_kill_participation,
+                    preferred_positions,
+                    last_twenty_games_win_rate,
+                )
 
         return players_info
 
-    # Assuming that no matchup equals -1
+    # Assuming that -1 means that there is no match up
     def get_champ_stats_from_csv(self) -> Dict[Lane, Dict[Champion, Champ_stats]]:
         # Result dict as in function return type
         res = {}
@@ -822,7 +835,9 @@ scrapper = Scrapper(CHROME_DRIVER)
 
 # scrapper.scrap_champ_stats_to_csv(Tier.PLATINUM)
 
-# scrapper.get_champ_stats_from_csv()
+# print(scrapper.get_champ_stats_from_csv())
+# scrapper.scrap_player_info_to_csv(Player("DBicek", "EUNE"))
+print(scrapper.get_players_info_from_csv())
 # print(
 #     scrapper.get_player_stats_on_specific_champion(
 #         Player("DBicek", "EUNE"), Champion.TEEMO
