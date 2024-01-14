@@ -2,6 +2,7 @@ from dataclasses import dataclass, asdict
 from champions import *
 from typing import Dict
 
+
 @dataclass
 class Player:
     name: str
@@ -11,6 +12,9 @@ class Player:
         new_name = self.name.replace(" ", "%20")
         return f"{new_name}-{self.tag}"
 
+    def __hash__(self):
+        return hash(self.get_opgg_name())
+
 
 class Lane(Enum):
     TOP = 1
@@ -19,13 +23,15 @@ class Lane(Enum):
     ADC = 4
     SUPPORT = 5
 
+
 lane_name_to_enum = {
     "top": Lane.TOP,
     "jungle": Lane.JUNGLE,
     "mid": Lane.MID,
     "adc": Lane.ADC,
-    "support": Lane.SUPPORT
+    "support": Lane.SUPPORT,
 }
+
 
 class MatchResult(Enum):
     RED = 1
@@ -34,17 +40,18 @@ class MatchResult(Enum):
 
 
 class Tier(Enum):
-    IRON = 'iron'
-    BRONZE = 'bronze'
-    SILVER = 'silver'
-    GOLD = 'gold'
-    PLATINUM = 'platinum'
-    EMERALD = 'emerald'
-    DIAMOND = 'diamond'
-    MASTER = 'master'
-    GRANDMASTER = 'grandmaster'
-    CHALLENGER = 'challenger'
-    ALL = ''
+    IRON = "iron"
+    BRONZE = "bronze"
+    SILVER = "silver"
+    GOLD = "gold"
+    PLATINUM = "platinum"
+    EMERALD = "emerald"
+    DIAMOND = "diamond"
+    MASTER = "master"
+    GRANDMASTER = "grandmaster"
+    CHALLENGER = "challenger"
+    ALL = ""
+
 
 class ChampionTier(Enum):
     TIER1 = 1
@@ -53,14 +60,20 @@ class ChampionTier(Enum):
     TIER4 = 4
     TIER5 = 5
 
+
 champion_tier_name_to_enum = {
     "5 Tier": ChampionTier.TIER5,
     "4 Tier": ChampionTier.TIER4,
     "3 Tier": ChampionTier.TIER3,
     "2 Tier": ChampionTier.TIER2,
     "1 Tier": ChampionTier.TIER1,
-    "OP Tier": ChampionTier.TIER1
+    "OP Tier": ChampionTier.TIER1,
 }
+
+champion_tier_enum_to_name = {
+    value: key for key, value in champion_tier_name_to_enum.items()
+}
+
 
 @dataclass
 class Opgg_match:
@@ -68,19 +81,6 @@ class Opgg_match:
     team_blue: list[(Player, Champion, Lane)]
     winner: MatchResult
 
-# @dataclass
-# class Opgg_match:
-#     player_red_1: (Player, Champion, Lane)
-#     player_red_2: (Player, Champion, Lane)
-#     player_red_3: (Player, Champion, Lane)
-#     player_red_4: (Player, Champion, Lane)
-#     player_red_5: (Player, Champion, Lane)
-#     player_blue_1: (Player, Champion, Lane)
-#     player_blue_2: (Player, Champion, Lane)
-#     player_blue_3: (Player, Champion, Lane)
-#     player_blue_4: (Player, Champion, Lane)
-#     player_blue_5: (Player, Champion, Lane)
-#     winner: MatchResult
 
 @dataclass
 class Player_stats_on_champ:
@@ -98,7 +98,7 @@ class Player_stats_on_champ:
 class Player_info:
     player: Player
     overall_win_rate: float
-    rank: str #type Tier? ===========================================================================================
+    rank: str  # type Tier? ===========================================================================================
     total_games_played: int
     level: int
     last_twenty_games_kda_ratio: float
