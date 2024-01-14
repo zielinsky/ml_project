@@ -25,6 +25,7 @@ CHROME_DRIVER = config["CHROME_DRIVER"]
 PLAYERS_CSV_PATH = "data/players.csv"
 PLAYERS_INFO_CSV_PATH = "data/playerInfo.csv"
 MATCHES_CSV_PATH = "data/matches.csv"
+PLAYER_STATS_ON_CHAMP_CSV_PATH = "data/playerStatsOnChamp.csv"
 CHAMPION_STATS_CSVS_PATHS = [
     "data/champStats/Top.csv",
     "data/champStats/Jungle.csv",
@@ -729,7 +730,44 @@ class Scrapper:
                         ]
                     )
 
-    def get_matches_from_csv(self) -> list[Opgg_match]:
+    def scrap_player_stats_on_champ_to_csv(
+        self, player: Player, champion: Champion
+    ) -> None:
+        header = [
+            "player",
+            "champion",
+            "mastery",
+            "total_games_played",
+            "win_rate",
+            "kda_ratio",
+            "average_gold_per_minute",
+            "average_cs_per_minute",
+        ]
+        player_stats_on_champ = self.get_player_stats_on_specific_champion(
+            player, champion
+        )
+        csvExists = os.path.exists(PLAYER_STATS_ON_CHAMP_CSV_PATH)
+        with open(PLAYER_STATS_ON_CHAMP_CSV_PATH, "a+", newline="") as file:
+            writer = csv.writer(file)
+
+            if not csvExists:
+                writer.writerow(header)
+
+            writer.writerow(
+                [
+                    player_stats_on_champ.player,
+                    player_stats_on_champ.champion,
+                    player_stats_on_champ.mastery,
+                    player_stats_on_champ.total_games_played,
+                    player_stats_on_champ.win_rate,
+                    player_stats_on_champ.kda_ratio,
+                    player_stats_on_champ.average_gold_per_minute,
+                    player_stats_on_champ.average_cs_per_minute,
+                ]
+            )
+
+    @staticmethod
+    def get_matches_from_csv() -> list[Opgg_match]:
         matches = []
         with open(MATCHES_CSV_PATH, "r", newline="") as file:
             reader = csv.reader(file)
@@ -750,7 +788,8 @@ class Scrapper:
 
         return matches
 
-    def get_players_from_csv(self) -> list[Player]:
+    @staticmethod
+    def get_players_from_csv() -> list[Player]:
         players = []
         with open(PLAYERS_CSV_PATH, "r", newline="") as file:
             reader = csv.reader(file)
@@ -763,7 +802,8 @@ class Scrapper:
 
         return players
 
-    def get_players_info_from_csv(self) -> dict[Player, Player_info]:
+    @staticmethod
+    def get_players_info_from_csv() -> dict[Player, Player_info]:
         with open(PLAYERS_INFO_CSV_PATH, "r", newline="") as file:
             reader = csv.reader(file)
 
@@ -796,7 +836,8 @@ class Scrapper:
         return players_info
 
     # Assuming that -1 means that there is no match up
-    def get_champ_stats_from_csv(self) -> Dict[Lane, Dict[Champion, Champ_stats]]:
+    @staticmethod
+    def get_champ_stats_from_csv() -> Dict[Lane, Dict[Champion, Champ_stats]]:
         # Result dict as in function return type
         res = {}
         # Iterate over all lanes
@@ -830,14 +871,56 @@ class Scrapper:
 
         return res
 
+    @staticmethod
+    def get_player_stats_on_champ_from_csv() -> (
+        Dict[Player, Dict[Champion, Player_stats_on_champ]]
+    ):
+        with open(PLAYER_STATS_ON_CHAMP_CSV_PATH, "r", newline="") as file:
+            reader = csv.reader(file)
+
+            # skip header
+            next(reader, None)
+
+            players_stats_on_champ = {}
+            for row in reader:
+                player = eval(row[0])
+                champion = champion_name_to_enum[row[1]]
+                mastery = int(row[2])
+                total_games_played = int(row[3])
+                win_rate = float(row[4])
+                kda_ratio = float(row[5])
+                average_gold_per_minute = float(row[6])
+                average_cs_per_minute = float(row[7])
+                player_stats_on_champ = Player_stats_on_champ(
+                    player,
+                    champion,
+                    mastery,
+                    total_games_played,
+                    win_rate,
+                    kda_ratio,
+                    average_gold_per_minute,
+                    average_cs_per_minute,
+                )
+
+                if player in players_stats_on_champ:
+                    players_stats_on_champ[player][champion] = player_stats_on_champ
+                else:
+                    players_stats_on_champ[player] = {champion: player_stats_on_champ}
+
+        return players_stats_on_champ
+
 
 scrapper = Scrapper(CHROME_DRIVER)
 
+# scrapper.scrap_player_stats_on_champ_to_csv(
+#     Player("LilZiele", "EUNE"), Champion.KINDRED
+# )
+print(scrapper.get_player_stats_on_champ_from_csv())
 # scrapper.scrap_champ_stats_to_csv(Tier.PLATINUM)
 
 # print(scrapper.get_champ_stats_from_csv())
 # scrapper.scrap_player_info_to_csv(Player("DBicek", "EUNE"))
-print(scrapper.get_players_info_from_csv())
+# print(scrapper.get_players_info_from_csv())
 # print(
 #     scrapper.get_player_stats_on_specific_champion(
 #         Player("DBicek", "EUNE"), Champion.TEEMO
