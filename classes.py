@@ -12,6 +12,9 @@ class Player:
         new_name = self.name.replace(" ", "%20")
         return f"{new_name}-{self.tag}"
 
+    def __hash__(self):
+        return hash(self.get_opgg_name())
+
 
 class Lane(Enum):
     TOP = 1
