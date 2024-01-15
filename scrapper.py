@@ -75,14 +75,14 @@ class Scrapper:
             "prefs", {"intl.accept_languages": "en,en_US"}
         )
         chrome_options.add_argument("--headless=new")
-        chrome_options.add_experimental_option(
-            "detach", True
-        )  # Browser stays opened after executing commands
+        # chrome_options.add_experimental_option(
+        #     "detach", True
+        # )  # Browser stays opened after executing commands
 
         self.driver = webdriver.Chrome(service=service, options=chrome_options)
-        self.driver.maximize_window()
+        # self.driver.maximize_window()
 
-    def _accept_op_gg_cookies(self):
+    def accept_op_gg_cookies(self):
         try:
             WebDriverWait(self.driver, 3).until(
                 EC.presence_of_element_located((By.CLASS_NAME, "css-47sehv"))
@@ -98,17 +98,17 @@ class Scrapper:
             By.XPATH, '//button[@value="SOLORANKED"]'
         )
         ranked_game_type.click()
-        # time.sleep(1.5)
-        # list_of_games = [
-        #     i.text for i in self.driver.find_elements(By.CLASS_NAME, "game-type")
-        # ]
-        time.sleep(1)
-        # # print(list_of_games.count("Ranked Solo"), " ", len(list_of_games))
-        # while list_of_games.count("Ranked Solo") != len(list_of_games):
-        #     list_of_games = [
-        #         i.text for i in self.driver.find_elements(By.CLASS_NAME, "game-type")
-        #     ]
-        #     # print(list_of_games.count("Ranked Solo"), " ", len(list_of_games))
+
+        try:  # Zmiana potencjalna
+            WebDriverWait(self.driver, 5).until(
+                EC.text_to_be_present_in_element(
+                    (By.XPATH, '//button[@class="more"]'), "Show More"
+                )
+            )
+        except:
+            self.driver.refresh()
+            self.accept_op_gg_cookies()
+            self.get_only_solo_duo_games()
 
     def get_n_recent_matches(self, n: int, player: Player) -> list[Opgg_match]:
         game_info_class_name = "css-j7qwjs e13s2rqz0"
@@ -116,7 +116,7 @@ class Scrapper:
         self.driver.get(f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}")
 
         # Agree to cookies
-        self._accept_op_gg_cookies()
+        self.accept_op_gg_cookies()
 
         # Get only solo/duo games
         self.get_only_solo_duo_games()
@@ -130,55 +130,50 @@ class Scrapper:
 
         # Show more matches if n > 20
         try:
-            for _ in range(0, n // 20):
+            for _ in range(0, (n - 1) // 20):
                 show_more_button = self.driver.find_element(
                     By.XPATH, '//button[@class="more"]'
                 )
                 show_more_button.click()
-                time.sleep(3)
+                WebDriverWait(self.driver, 3).until(
+                    EC.text_to_be_present_in_element(
+                        (By.XPATH, '//button[@class="more"]'), "Show More"
+                    )
+                )
         except:
             pass
 
-        time.sleep(4)
-
         # Get matches divs
         matches_div = self.driver.find_elements(
-            By.XPATH, '//div[@class="' + game_info_class_name + '"]'
+            By.CLASS_NAME,
+            "css-j7qwjs",
         )
 
         matches = []
+        # print(len(matches_div))
         for match_div in matches_div[:n]:
-            # Open matches details
-            button = match_div.find_element(By.CLASS_NAME, "btn-detail")
-            button.click()
-            time.sleep(3)
-
-            match_info = match_div.find_element(By.TAG_NAME, "th").text
-            player_team = "Red" if "Red" in match_info else "Blue"
-
-            match_result = (
-                MatchResult.REMAKE
-                if "Remake" in match_info
-                else MatchResult.BLUE
-                if "Victory" in match_info and "Blue" in match_info
-                else MatchResult.RED
-                if "Victory" in match_info and "Red" in match_info
-                else MatchResult.BLUE
-                if "Red" in match_info
-                else MatchResult.RED
+            # match_div.screenshot("dupa.png")
+            players_div = match_div.find_elements(
+                By.CLASS_NAME,
+                "css-1uoah6o",
             )
-
-            players_div = match_div.find_elements(By.CLASS_NAME, "overview-player")
-
+            # print(match_div.text)
             players_info = (
                 []
             )  # [(Player(name='DBicek', tag='EUNE'), 'teemo', <Lanes.TOP: 1>), ...]
+
+            player_team = ""
+
             for idx, player_div in enumerate(players_div):
+                if "is-me" in player_div.get_attribute("class"):
+                    player_team = "Red" if idx >= 5 else "Blue"
+                # print(idx)
                 champion_name = (
-                    player_div.find_element(By.CLASS_NAME, "champion")
-                    .find_element(By.TAG_NAME, "a")
-                    .get_attribute("href")
-                    .split("/")[4]
+                    player_div.find_element(By.TAG_NAME, "img")
+                    .get_attribute("src")
+                    .split(".png")[0]
+                    .split("/")[-1]
+                    .lower()
                 )
 
                 player = (
@@ -187,7 +182,7 @@ class Scrapper:
                     .get_attribute("href")
                     .split("/")[5]
                 )
-
+                # print(idx)
                 player_name = player.split("-")[0]
                 player_tag = player.split("-")[1]
                 players_info.append(
@@ -198,11 +193,23 @@ class Scrapper:
                     )
                 )
 
-            red_team = players_info[0:5] if player_team == "Red" else players_info[5:10]
-            blue_team = (
-                players_info[5:10] if player_team == "Red" else players_info[0:5]
+            match_info = match_div.find_element(By.CLASS_NAME, "result").text
+
+            match_result = (
+                MatchResult.REMAKE
+                if "Remake" in match_info
+                else MatchResult.BLUE
+                if "Victory" in match_info and player_team == "Blue"
+                else MatchResult.BLUE
+                if "Defeat" in match_info and player_team == "Red"
+                else MatchResult.RED
+                if "Defeat" in match_info and player_team == "Blue"
+                else MatchResult.RED
             )
 
+            blue_team = players_info[0:5]
+            red_team = players_info[5:10]
+            # print(Opgg_match(red_team, blue_team, match_result))
             matches.append(Opgg_match(red_team, blue_team, match_result))
 
         return matches
@@ -245,7 +252,7 @@ class Scrapper:
     def get_player_info(self, player: Player) -> Player_info:
         self.driver.get(f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}")
         # accept cookies
-        self._accept_op_gg_cookies()
+        self.accept_op_gg_cookies()
         self.get_only_solo_duo_games()
 
         page = self.driver.find_element(By.ID, "__next")
@@ -314,7 +321,7 @@ class Scrapper:
         )
 
         # accept cookies
-        self._accept_op_gg_cookies()
+        self.accept_op_gg_cookies()
 
         lane_elements = self.driver.find_elements(
             By.XPATH, '//div[@data-key="FILTER-POSITION"]'
@@ -381,7 +388,7 @@ class Scrapper:
         self.driver.get(
             f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}/champions"
         )
-        self._accept_op_gg_cookies()
+        self.accept_op_gg_cookies()
 
         # Wait until Season button is clickable
         WebDriverWait(self.driver, 5).until(
@@ -485,7 +492,7 @@ class Scrapper:
         self.driver.get(
             f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}/champions"
         )
-        self._accept_op_gg_cookies()
+        self.accept_op_gg_cookies()
 
         champion_string = champion_enum_to_name[champion]
 
@@ -654,6 +661,7 @@ class Scrapper:
             date = datetime.today().strftime("%Y/%m/%d %H:%M:%S")
 
             for match in self.get_n_recent_matches(n, player):
+                print(match)
                 writer.writerow(
                     [
                         date,
@@ -1149,10 +1157,10 @@ class Scrapper:
 
 scrapper = Scrapper(CHROME_DRIVER)
 
-# scrapper.scrap_players_and_their_matches_to_csv(1, 1, Tier.EMERALD)
+scrapper.scrap_players_and_their_matches_to_csv(5, 20, Tier.PLATINUM)
 
-# scrapper.scrap_data_necessary_to_process_matches()
-scrapper.scrap_champ_stats_to_csv(Tier.EMERALD)
+scrapper.scrap_data_necessary_to_process_matches()
+# scrapper.scrap_champ_stats_to_csv(Tier.EMERALD)
 # scrapper.scrap_player_stats_on_champ_to_csv(
 #     Player("LilZiele", "EUNE"), Champion.KINDRED
 # )
