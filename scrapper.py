@@ -106,6 +106,7 @@ class Scrapper:
             )
         )
 
+    # TODO investigate why sometimes they return opgg_matches without players
     @retry((Exception), tries=3, delay=RETRY_DELAY, backoff=0)
     def get_n_recent_matches(self, n: int, player: Player) -> list[Opgg_match]:
         game_info_class_name = "css-j7qwjs e13s2rqz0"
@@ -158,17 +159,13 @@ class Scrapper:
         )
 
         matches = []
-        print(player.get_opgg_name())
 
         for match_div in matches_div[:n]:
-            # match_div.screenshot("dupa.png")
             players_div = match_div.find_elements(
                 By.CLASS_NAME,
                 "er3mfww1",
             )
-            players_info = (
-                []
-            )  # [(Player(name='DBicek', tag='EUNE'), 'teemo', <Lanes.TOP: 1>), ...]
+            players_info = []
 
             player_team = ""
 
