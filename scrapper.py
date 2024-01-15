@@ -1,10 +1,12 @@
 from datetime import datetime
+from statistics import mean
+
+from retry import retry
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from dataclasses import make_dataclass
 import time, json, requests
 import os.path
 import re
@@ -33,6 +35,7 @@ CHAMPION_STATS_CSVS_PATHS = [
     "data/champStats/Adc.csv",
     "data/champStats/Support.csv",
 ]
+RETRY_DELAY = 3
 # ========================== CONSTANTS ==========================
 
 
@@ -73,12 +76,14 @@ class Scrapper:
             "prefs", {"intl.accept_languages": "en,en_US"}
         )
         chrome_options.add_argument("--headless=new")
-        # chrome_options.add_experimental_option("detach", True)  # Browser stays opened after executing commands
+        # chrome_options.add_experimental_option(
+        #     "detach", True
+        # )  # Browser stays opened after executing commands
 
         self.driver = webdriver.Chrome(service=service, options=chrome_options)
         # self.driver.maximize_window()
 
-    def _accept_op_gg_cookies(self):
+    def accept_op_gg_cookies(self):
         try:
             WebDriverWait(self.driver, 3).until(
                 EC.presence_of_element_located((By.CLASS_NAME, "css-47sehv"))
@@ -94,27 +99,35 @@ class Scrapper:
             By.XPATH, '//button[@value="SOLORANKED"]'
         )
         ranked_game_type.click()
-        time.sleep(1.5)
-        list_of_games = [
-            i.text for i in self.driver.find_elements(By.CLASS_NAME, "game-type")
-        ]
-        # print(list_of_games.count("Ranked Solo"), " ", len(list_of_games))
-        while list_of_games.count("Ranked Solo") != len(list_of_games):
-            list_of_games = [
-                i.text for i in self.driver.find_elements(By.CLASS_NAME, "game-type")
-            ]
-            # print(list_of_games.count("Ranked Solo"), " ", len(list_of_games))
 
+        WebDriverWait(self.driver, 15).until(
+            EC.text_to_be_present_in_element(
+                (By.XPATH, '//button[@class="more"]'), "Show More"
+            )
+        )
+
+    @retry((Exception), tries=3, delay=RETRY_DELAY, backoff=0)
     def get_n_recent_matches(self, n: int, player: Player) -> list[Opgg_match]:
         game_info_class_name = "css-j7qwjs e13s2rqz0"
 
         self.driver.get(f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}")
 
         # Agree to cookies
-        self._accept_op_gg_cookies()
+        self.accept_op_gg_cookies()
+
+        try:
+            show_more_button = self.driver.find_element(
+                By.XPATH, '//button[@class="more"]'
+            )
+        except:
+            return []
 
         # Get only solo/duo games
-        self.get_only_solo_duo_games()
+        # TODO: Sometimes thats inf loop - maybe when player is currently playing
+        try:
+            self.get_only_solo_duo_games()
+        except:
+            return self.get_n_recent_matches(n, player)
 
         # Wait for match history to load on op.gg
         WebDriverWait(self.driver, 20).until(
@@ -125,55 +138,50 @@ class Scrapper:
 
         # Show more matches if n > 20
         try:
-            for _ in range(0, n // 20):
+            for _ in range(0, (n - 1) // 20):
                 show_more_button = self.driver.find_element(
                     By.XPATH, '//button[@class="more"]'
                 )
                 show_more_button.click()
-                time.sleep(3)
+                WebDriverWait(self.driver, 3).until(
+                    EC.text_to_be_present_in_element(
+                        (By.XPATH, '//button[@class="more"]'), "Show More"
+                    )
+                )
         except:
             pass
 
-        time.sleep(4)
-
         # Get matches divs
         matches_div = self.driver.find_elements(
-            By.XPATH, '//div[@class="' + game_info_class_name + '"]'
+            By.CLASS_NAME,
+            "e13s2rqz0",
         )
 
         matches = []
+        print(player.get_opgg_name())
+
         for match_div in matches_div[:n]:
-            # Open matches details
-            button = match_div.find_element(By.CLASS_NAME, "btn-detail")
-            button.click()
-            time.sleep(1)
-
-            match_info = match_div.find_element(By.TAG_NAME, "th").text
-            player_team = "Red" if "Red" in match_info else "Blue"
-
-            match_result = (
-                MatchResult.REMAKE
-                if "Remake" in match_info
-                else MatchResult.BLUE
-                if "Victory" in match_info and "Blue" in match_info
-                else MatchResult.RED
-                if "Victory" in match_info and "Red" in match_info
-                else MatchResult.BLUE
-                if "Red" in match_info
-                else MatchResult.RED
+            # match_div.screenshot("dupa.png")
+            players_div = match_div.find_elements(
+                By.CLASS_NAME,
+                "er3mfww1",
             )
-
-            players_div = match_div.find_elements(By.CLASS_NAME, "overview-player")
-
             players_info = (
                 []
             )  # [(Player(name='DBicek', tag='EUNE'), 'teemo', <Lanes.TOP: 1>), ...]
+
+            player_team = ""
+
             for idx, player_div in enumerate(players_div):
+                if "is-me" in player_div.get_attribute("class"):
+                    player_team = "Red" if idx >= 5 else "Blue"
+
                 champion_name = (
-                    player_div.find_element(By.CLASS_NAME, "champion")
-                    .find_element(By.TAG_NAME, "a")
-                    .get_attribute("href")
-                    .split("/")[4]
+                    player_div.find_element(By.TAG_NAME, "img")
+                    .get_attribute("src")
+                    .split(".png")[0]
+                    .split("/")[-1]
+                    .lower()
                 )
 
                 player = (
@@ -183,8 +191,13 @@ class Scrapper:
                     .split("/")[5]
                 )
 
-                player_name = player.split("-")[0]
-                player_tag = player.split("-")[1]
+                try:
+                    player_name = player.split("-")[0]
+                    player_tag = player.split("-")[1]
+                except:
+                    player_name = player
+                    player_tag = "EUNE"
+
                 players_info.append(
                     (
                         Player(player_name, player_tag),
@@ -193,10 +206,22 @@ class Scrapper:
                     )
                 )
 
-            red_team = players_info[0:5] if player_team == "Red" else players_info[5:10]
-            blue_team = (
-                players_info[5:10] if player_team == "Red" else players_info[0:5]
+            match_info = match_div.find_element(By.CLASS_NAME, "result").text
+
+            match_result = (
+                MatchResult.REMAKE
+                if "Remake" in match_info
+                else MatchResult.BLUE
+                if "Victory" in match_info and player_team == "Blue"
+                else MatchResult.BLUE
+                if "Defeat" in match_info and player_team == "Red"
+                else MatchResult.RED
+                if "Defeat" in match_info and player_team == "Blue"
+                else MatchResult.RED
             )
+
+            blue_team = players_info[0:5]
+            red_team = players_info[5:10]
 
             matches.append(Opgg_match(red_team, blue_team, match_result))
 
@@ -240,8 +265,12 @@ class Scrapper:
     def get_player_info(self, player: Player) -> Player_info:
         self.driver.get(f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}")
         # accept cookies
-        self._accept_op_gg_cookies()
-        self.get_only_solo_duo_games()
+        self.accept_op_gg_cookies()
+
+        try:
+            self.get_only_solo_duo_games()
+        except:
+            return self.get_player_info(player)
 
         page = self.driver.find_element(By.ID, "__next")
 
@@ -251,6 +280,7 @@ class Scrapper:
         try:
             find_on_page("win-lose-container")
         except:
+            # TODO We need to skip matches that have any unranked players
             return Player_info(
                 player, None, None, None, None, None, None, None, None
             )  # unranked player
@@ -308,7 +338,7 @@ class Scrapper:
         )
 
         # accept cookies
-        self._accept_op_gg_cookies()
+        self.accept_op_gg_cookies()
 
         lane_elements = self.driver.find_elements(
             By.XPATH, '//div[@data-key="FILTER-POSITION"]'
@@ -375,7 +405,7 @@ class Scrapper:
         self.driver.get(
             f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}/champions"
         )
-        self._accept_op_gg_cookies()
+        self.accept_op_gg_cookies()
 
         # Wait until Season button is clickable
         WebDriverWait(self.driver, 5).until(
@@ -479,7 +509,7 @@ class Scrapper:
         self.driver.get(
             f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}/champions"
         )
-        self._accept_op_gg_cookies()
+        self.accept_op_gg_cookies()
 
         champion_string = champion_enum_to_name[champion]
 
@@ -524,28 +554,31 @@ class Scrapper:
         ranked_solo_games_button.click()
 
         # Wait until stats are loaded
-        WebDriverWait(self.driver, 5).until(
-            EC.presence_of_element_located(
+        WebDriverWait(self.driver, 15).until(
+            EC.visibility_of_element_located(
                 (By.XPATH, '//*[@id="content-container"]/div/table/colgroup')
             )
         )
 
-        # time.sleep(2)
-        stats_on_all_champions = [
-            elem
-            for elem in self.driver.find_elements(
-                By.XPATH, '//*[@id="content-container"]/div/table/tbody/*'
-            )
-        ]
+        # time.sleep(1)
+        stats_on_all_champions = self.driver.find_elements(
+            By.XPATH, '//*[@id="content-container"]/div/table/tbody/*'
+        )
 
-        desired_stats = []
+        desired_stats = None
         for stat in stats_on_all_champions:
             if champion_string in stat.text.lower():
                 desired_stats = stat
+        # TODO Make sure that no empty stats are being saved because the elements take too long to load. The condition
+        #  of desired_stats is None is a bandaid so the program doesn't crash for now.
+
+        if (
+            "There are no results recorded." in stats_on_all_champions[0].text
+            or desired_stats is None
+        ):
+            return Player_stats_on_champ(player, champion_string, 0, 0, 0, 0, 0, 0)
 
         desired_stats_list = desired_stats.text.split("\n")
-        if len(desired_stats_list) == 0:
-            return Player_stats_on_champ(player, champion_string, 0, 0, 0, 0, 0, 0)
 
         """
         Work around of stats where 0 games are won or 0 games are lost on a specific champion.
@@ -766,6 +799,234 @@ class Scrapper:
                 ]
             )
 
+    def scrap_players_and_their_matches_to_csv(
+        self, num_of_players: int, num_of_matches: int, tier: Tier
+    ):
+        self.scrap_players_to_csv(num_of_players, tier)
+        players = self.get_players_from_csv()
+        for player in players:
+            self.scrap_n_player_matches_to_csv(player, num_of_matches)
+
+    def scrap_data_necessary_to_process_matches(self):
+        # Przydałoby się sprawdzać czy nie robimy jakiś duplikatów graczy oraz tupli (Player, Champion)
+        def scrap_data_necessary_to_process_match(match: Opgg_match):
+            match_records = match.team_blue + match.team_red
+            for player, champion, lane in match_records:
+                self.scrap_player_info_to_csv(player)
+                self.scrap_player_stats_on_champ_to_csv(player, champion)
+
+        matches = self.get_matches_from_csv()
+        for match in matches:
+            scrap_data_necessary_to_process_match(match)
+
+    def scrap_data_vector_based_on_matches(self):
+        matches = self.get_matches_from_csv()
+        self.scrap_data_necessary_to_process_matches()
+        players_info = self.get_players_info_from_csv()
+        players_stats_on_champ = self.get_players_stats_on_champ_from_csv()
+        champions_stats = self.get_champ_stats_from_csv()
+
+        def get_entry_for_player(
+            player_info: Player_info, player_stats_on_champion: Player_stats_on_champ
+        ) -> DataEntryForPlayer:
+            return DataEntryForPlayer(
+                player_stats_on_champion.mastery,
+                player_stats_on_champion.win_rate,
+                player_stats_on_champion.kda_ratio,
+                player_stats_on_champion.average_gold_per_minute,
+                player_stats_on_champion.average_cs_per_minute,
+                player_info.overall_win_rate,
+            )
+
+        def get_entry_for_champion(
+            champion_stats: Champ_stats,
+            enemy_champion: Champion,
+        ) -> ChampionEntry:
+            return ChampionEntry(
+                champion_stats.champion_tier.value,
+                champion_stats.win_rate,
+                champion_stats.ban_rate,
+                champion_stats.pick_rate,
+                champion_stats.match_up_win_rate[enemy_champion],
+            )
+
+        def calculate_vector_entries(
+            players_info: dict[Player, Player_info],
+            players_stats_on_champion: dict[
+                Player, dict[Champion, Player_stats_on_champ]
+            ],
+            team: list[(Player, Champion, Lane)],
+            enemy_team: list[(Player, Champion, Lane)],
+        ) -> (list[DataEntryForPlayer], list[ChampionEntry], list[DataEntryTeam]):
+            player_entries = []
+            champion_entries = []
+            for idx, player, champion, lane in enumerate(team):
+                player_entries.append(
+                    get_entry_for_player(
+                        players_info[player],
+                        players_stats_on_champion[player][champion],
+                    )
+                )
+                champion_entries.append(
+                    get_entry_for_champion(
+                        champions_stats[lane][champion],
+                        enemy_team[idx][1],
+                    )
+                )
+            team_entry = DataEntryTeam(
+                sum(
+                    [
+                        player_entry.player_mastery_on_champ
+                        for player_entry in player_entries
+                    ]
+                ),
+                mean(
+                    [
+                        player_entry.player_mastery_on_champ
+                        for player_entry in player_entries
+                    ]
+                ),
+                mean(
+                    [player_entry.player_overall_wr for player_entry in player_entries]
+                ),
+                mean(
+                    [player_entry.player_wr_on_champ for player_entry in player_entries]
+                ),
+                mean(
+                    [champion_entry.match_up_wr for champion_entry in champion_entries]
+                ),
+            )
+            return player_entries, champion_entries, team_entry
+
+        data_vector = []
+        for match in matches:
+            blue_team = match.team_blue
+            red_team = match.team_red
+            match_result = match.winner
+            match_row = []
+
+            (
+                blue_team_players_entries,
+                blue_team_champions_entries,
+                blue_team_team_entry,
+            ) = calculate_vector_entries(
+                players_info, players_stats_on_champ, blue_team, red_team
+            )
+            (
+                red_team_players_entries,
+                red_team_champions_entries,
+                red_team_team_entry,
+            ) = calculate_vector_entries(
+                players_info, players_stats_on_champ, red_team, blue_team
+            )
+            # for idx, player, champion, lane in enumerate(blue_team):
+            #     blue_team_players_entries.append(
+            #         get_entry_for_player(
+            #             players_info[player],
+            #             players_stats_on_champ[player][champion],
+            #         )
+            #     )
+            #     blue_team_champions_entries.append(
+            #         get_entry_for_champion(
+            #             champions_stats[lane][champion],
+            #             red_team[idx][1],
+            #         )
+            #     )
+            # blue_team_team_entry = DataEntryTeam(
+            #     sum(
+            #         [
+            #             player_entry.player_mastery_on_champ
+            #             for player_entry in blue_team_players_entries
+            #         ]
+            #     ),
+            #     mean(
+            #         [
+            #             player_entry.player_mastery_on_champ
+            #             for player_entry in blue_team_players_entries
+            #         ]
+            #     ),
+            #     mean(
+            #         [
+            #             player_entry.player_overall_wr
+            #             for player_entry in blue_team_players_entries
+            #         ]
+            #     ),
+            #     mean(
+            #         [
+            #             player_entry.player_wr_on_champ
+            #             for player_entry in blue_team_players_entries
+            #         ]
+            #     ),
+            #     mean(
+            #         [
+            #             champion_entry.match_up_wr
+            #             for champion_entry in blue_team_champions_entries
+            #         ]
+            #     ),
+            # )
+            #
+            # red_team_players_entries = []
+            # red_team_champions_entries = []
+            # for idx, player, champion, lane in enumerate(red_team):
+            #     red_team_players_entries.append(
+            #         get_entry_for_player(
+            #             players_info[player],
+            #             players_stats_on_champ[player][champion],
+            #         )
+            #     )
+            #     red_team_champions_entries.append(
+            #         get_entry_for_champion(
+            #             champions_stats[lane][champion],
+            #             blue_team[idx][1],
+            #         )
+            #     )
+            # red_team_team_entry = DataEntryTeam(
+            #     sum(
+            #         [
+            #             player_entry.player_mastery_on_champ
+            #             for player_entry in red_team_players_entries
+            #         ]
+            #     ),
+            #     mean(
+            #         [
+            #             player_entry.player_mastery_on_champ
+            #             for player_entry in red_team_players_entries
+            #         ]
+            #     ),
+            #     mean(
+            #         [
+            #             player_entry.player_overall_wr
+            #             for player_entry in red_team_players_entries
+            #         ]
+            #     ),
+            #     mean(
+            #         [
+            #             player_entry.player_wr_on_champ
+            #             for player_entry in red_team_players_entries
+            #         ]
+            #     ),
+            #     mean(
+            #         [
+            #             champion_entry.match_up_wr
+            #             for champion_entry in red_team_champions_entries
+            #         ]
+            #     ),
+            # )
+
+            match_row.append(
+                DataVector(
+                    blue_team_players_entries,
+                    blue_team_champions_entries,
+                    blue_team_team_entry,
+                    red_team_players_entries,
+                    red_team_champions_entries,
+                    red_team_team_entry,
+                    match_result,
+                )
+            )
+
+            data_vector.append(match_row)
+
     @staticmethod
     def get_matches_from_csv() -> list[Opgg_match]:
         matches = []
@@ -872,7 +1133,7 @@ class Scrapper:
         return res
 
     @staticmethod
-    def get_player_stats_on_champ_from_csv() -> (
+    def get_players_stats_on_champ_from_csv() -> (
         Dict[Player, Dict[Champion, Player_stats_on_champ]]
     ):
         with open(PLAYER_STATS_ON_CHAMP_CSV_PATH, "r", newline="") as file:
@@ -912,10 +1173,14 @@ class Scrapper:
 
 scrapper = Scrapper(CHROME_DRIVER)
 
+scrapper.scrap_players_and_their_matches_to_csv(200, 50, Tier.PLATINUM)
+
+# scrapper.scrap_data_necessary_to_process_matches()
+# scrapper.scrap_champ_stats_to_csv(Tier.EMERALD)
 # scrapper.scrap_player_stats_on_champ_to_csv(
 #     Player("LilZiele", "EUNE"), Champion.KINDRED
 # )
-print(scrapper.get_player_stats_on_champ_from_csv())
+# print(scrapper.get_player_stats_on_champ_from_csv())
 # scrapper.scrap_champ_stats_to_csv(Tier.PLATINUM)
 
 # print(scrapper.get_champ_stats_from_csv())
@@ -933,7 +1198,6 @@ print(scrapper.get_player_stats_on_champ_from_csv())
 # for player2 in scrapper.get_n_players_with_tier(2, Tier.PLATINUM):
 #     scrapper.scrap_player_info_to_csv(player2)
 
-# scrapper.scrap_all_matches_info_to_csv(4, 15, Tier.ALL)
 
 # scrapper.get_player_info(Player("Roron0a Z0r0", "EUNE")).show()
 # print(scrapper.get_n_recent_matches(15, Player("DBicek", "EUNE")))
