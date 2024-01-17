@@ -1,6 +1,7 @@
 from datetime import datetime
 from statistics import mean
 
+from tqdm import tqdm
 from retry import retry
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -76,12 +77,12 @@ class Scrapper:
             "prefs", {"intl.accept_languages": "en,en_US"}
         )
         chrome_options.add_argument("--headless=new")
-        # chrome_options.add_experimental_option(
-        #     "detach", True
-        # )  # Browser stays opened after executing commands
+        #chrome_options.add_experimental_option(
+        #    "detach", True
+        #)  # Browser stays opened after executing commands
 
         self.driver = webdriver.Chrome(service=service, options=chrome_options)
-        # self.driver.maximize_window()
+        #self.driver.maximize_window()
 
     def accept_op_gg_cookies(self):
         try:
@@ -100,42 +101,24 @@ class Scrapper:
         )
         ranked_game_type.click()
 
-        WebDriverWait(self.driver, 15).until(
-            EC.text_to_be_present_in_element(
-                (By.XPATH, '//button[@class="more"]'), "Show More"
-            )
-        )
+        #make sure that solo duo tab is switched
+        start_time = time.time()
+        while time.time() - start_time < 15:
+            try:
+                if_solo_duo_in_games = ['Ranked Solo' in i.text for i in self.driver.find_elements(By.CLASS_NAME, 'e1gknzrf0')]
+                #print(sum([1 if 'Ranked Solo' in text else 0 for text in list_of_games]), " ", len(list_of_games))
+                if False not in if_solo_duo_in_games:
+                    break
+            except:
+                pass
 
-    # TODO investigate why sometimes they return opgg_matches without players
     @retry((Exception), tries=3, delay=RETRY_DELAY, backoff=0)
     def get_n_recent_matches(self, n: int, player: Player) -> list[Opgg_match]:
-        game_info_class_name = "css-j7qwjs e13s2rqz0"
+        print(player.name)
 
         self.driver.get(f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}")
-
-        # Agree to cookies
         self.accept_op_gg_cookies()
-
-        try:
-            show_more_button = self.driver.find_element(
-                By.XPATH, '//button[@class="more"]'
-            )
-        except:
-            return []
-
-        # Get only solo/duo games
-        # TODO: Sometimes thats inf loop - maybe when player is currently playing
-        try:
-            self.get_only_solo_duo_games()
-        except:
-            return self.get_n_recent_matches(n, player)
-
-        # Wait for match history to load on op.gg
-        WebDriverWait(self.driver, 20).until(
-            EC.presence_of_element_located(
-                (By.XPATH, '//div[@class="' + game_info_class_name + '"]')
-            )
-        )
+        self.get_only_solo_duo_games()
 
         # Show more matches if n > 20
         try:
@@ -217,8 +200,7 @@ class Scrapper:
                 else MatchResult.RED
             )
 
-            blue_team = players_info[0:5]
-            red_team = players_info[5:10]
+            blue_team, red_team = players_info[0:5], players_info[5:10]
 
             matches.append(Opgg_match(red_team, blue_team, match_result))
 
@@ -638,6 +620,7 @@ class Scrapper:
             writer.writerow(
                 [
                     date,
+                    #asdict(player_stats)[header[1]], darek changes
                     player_stats.player,
                     player_stats.overall_win_rate,
                     player_stats.rank,
@@ -665,6 +648,9 @@ class Scrapper:
             "player_blue_4",
             "player_blue_5",
         ]
+
+        #for i in range(10):
+            #header.append('player_' + ['red_', 'blue_'][i//5] + str(i)) darek changes
 
         csvExists = os.path.exists(MATCHES_CSV_PATH)
         with open(MATCHES_CSV_PATH, "a+", newline="") as file:
@@ -801,7 +787,7 @@ class Scrapper:
     ):
         self.scrap_players_to_csv(num_of_players, tier)
         players = self.get_players_from_csv()
-        for player in players:
+        for player in tqdm(players):
             self.scrap_n_player_matches_to_csv(player, num_of_matches)
 
     def scrap_data_necessary_to_process_matches(self):
@@ -1170,7 +1156,7 @@ class Scrapper:
 
 scrapper = Scrapper(CHROME_DRIVER)
 
-scrapper.scrap_players_and_their_matches_to_csv(200, 50, Tier.PLATINUM)
+#scrapper.scrap_players_and_their_matches_to_csv(200, 50, Tier.PLATINUM) works
 
 # scrapper.scrap_data_necessary_to_process_matches()
 # scrapper.scrap_champ_stats_to_csv(Tier.EMERALD)
@@ -1196,9 +1182,9 @@ scrapper.scrap_players_and_their_matches_to_csv(200, 50, Tier.PLATINUM)
 #     scrapper.scrap_player_info_to_csv(player2)
 
 
-# scrapper.get_player_info(Player("Roron0a Z0r0", "EUNE")).show()
 # print(scrapper.get_n_recent_matches(15, Player("DBicek", "EUNE")))
 
 # print(scrapper.get_champion_stats(Champion.MISS_FORTUNE, Tier.IRON))
 # print(scrapper.get_player_mastery_at_champion(Player("DBicek", "EUNE"), Champion.TEEMO))
 #
+print("done")
