@@ -96,6 +96,7 @@ class Scrapper:
             pass
 
     def get_only_solo_duo_games(self):
+        #start switching to solo duo tab
         ranked_game_type = self.driver.find_element(
             By.XPATH, '//button[@value="SOLORANKED"]'
         )
@@ -138,7 +139,7 @@ class Scrapper:
         # Get matches divs
         matches_div = self.driver.find_elements(
             By.CLASS_NAME,
-            "e13s2rqz0",
+            "e1gknzrf0",
         )
 
         matches = []
