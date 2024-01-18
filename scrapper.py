@@ -23,7 +23,7 @@ CHROME_DRIVER = config["CHROME_DRIVER"]
 
 # ========================== CONSTANTS ==========================
 
-RETRY_DELAY = 3
+RETRY_DELAY = 5
 # ========================== CONSTANTS ==========================
 
 
@@ -120,6 +120,7 @@ class Scrapper:
                 )
         except:
             pass
+
         # Get matches divs
         matches_div = self.driver.find_elements(
             By.CLASS_NAME,
@@ -373,111 +374,8 @@ class Scrapper:
 
         return champion_stats
 
-    # Dane ze splita 2 season 2023
-    def get_player_stats_on_champions(
-        self, player: Player
-    ) -> list[Player_stats_on_champ]:
-        self.driver.get(
-            f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}/champions"
-        )
-        self.accept_op_gg_cookies()
-
-        # Wait until Season button is clickable
-        WebDriverWait(self.driver, 5).until(
-            EC.presence_of_element_located(
-                (
-                    By.XPATH,
-                    '//*[@id="content-container"]/div/div/div[1]/div[2]/div/button',
-                )
-            )
-        )
-        season_choice_button = self.driver.find_element(
-            By.XPATH, '//*[@id="content-container"]/div/div/div[1]/div[2]/div/button'
-        )
-        season_choice_button.click()
-
-        # Wait until Season 2023 S2 button is clickable
-        WebDriverWait(self.driver, 5).until(
-            EC.presence_of_element_located(
-                (
-                    By.XPATH,
-                    '//*[@id="content-container"]/div/div/div[1]/div[2]/div/div/button[2]',
-                )
-            )
-        )
-        season2023_split2_button = self.driver.find_element(
-            By.XPATH,
-            '//*[@id="content-container"]/div/div/div[1]/div[2]/div/div/button[2]',
-        )
-        season2023_split2_button.click()
-
-        # Wait until Ranked Solo button is clickable
-        WebDriverWait(self.driver, 5).until(
-            EC.presence_of_element_located(
-                (By.XPATH, '//*[@id="content-container"]/div/div/div[2]/button[2]')
-            )
-        )
-        ranked_solo_games_button = self.driver.find_element(
-            By.XPATH, '//*[@id="content-container"]/div/div/div[2]/button[2]'
-        )
-        ranked_solo_games_button.click()
-
-        # Wait until stats are loaded
-        WebDriverWait(self.driver, 5).until(
-            EC.presence_of_element_located(
-                (By.XPATH, '//*[@id="content-container"]/div/table/colgroup')
-            )
-        )
-
-        stats_on_champions = [
-            elem
-            for elem in self.driver.find_elements(
-                By.XPATH, '//*[@id="content-container"]/div/table/tbody/*'
-            )
-        ]
-
-        list_of_stats_on_champs = []
-        for stat in stats_on_champions:
-            desired_stats_list = stat.text.split("\n")
-
-            if "W" not in desired_stats_list[2]:
-                wins = 0
-                desired_stats_list.insert(2, "0W")
-            else:
-                wins = int(desired_stats_list[2][:-1])
-
-            if "L" not in desired_stats_list[3]:
-                losses = 0
-                desired_stats_list.insert(3, "0L")
-            else:
-                losses = int(desired_stats_list[3][:-1])
-
-            champion = champion_name_to_enum[
-                desired_stats_list[1].lower().replace(" ", "").replace("'", "")
-            ]
-            total_games_played = wins + losses
-            win_rate = float(desired_stats_list[4][:-1])
-            kda_ratio = float(desired_stats_list[5][:-2])
-            average_gold_per_minute = float(desired_stats_list[7].split(" ")[1][1:-1])
-            average_cs_per_minute = float(desired_stats_list[7].split(" ")[3][1:-1])
-            mastery = self.get_player_mastery_at_champion(player, champion)
-
-            list_of_stats_on_champs.append(
-                Player_stats_on_champ(
-                    player,
-                    champion,
-                    mastery,
-                    total_games_played,
-                    win_rate,
-                    kda_ratio,
-                    average_gold_per_minute,
-                    average_cs_per_minute,
-                )
-            )
-
-        return list_of_stats_on_champs
-
     # Data from Season 2023 Split 2
+    @retry((Exception), tries=5, delay=RETRY_DELAY, backoff=0)
     def get_player_stats_on_specific_champion(
         self, player: Player, champion: Champion
     ) -> Player_stats_on_champ:
@@ -488,35 +386,6 @@ class Scrapper:
 
         champion_string = champion_enum_to_name[champion]
 
-        # Wait until Season button is clickable
-        WebDriverWait(self.driver, 5).until(
-            EC.presence_of_element_located(
-                (
-                    By.XPATH,
-                    '//*[@id="content-container"]/div/div/div[1]/div[2]/div/button',
-                )
-            )
-        )
-        season_choice_button = self.driver.find_element(
-            By.XPATH, '//*[@id="content-container"]/div/div/div[1]/div[2]/div/button'
-        )
-        season_choice_button.click()
-
-        # Wait until Season 2023 S2 button is clickable
-        WebDriverWait(self.driver, 5).until(
-            EC.presence_of_element_located(
-                (
-                    By.XPATH,
-                    '//*[@id="content-container"]/div/div/div[1]/div[2]/div/div/button[2]',
-                )
-            )
-        )
-        season2023_split2_button = self.driver.find_element(
-            By.XPATH,
-            '//*[@id="content-container"]/div/div/div[1]/div[2]/div/div/button[2]',
-        )
-        season2023_split2_button.click()
-
         # Wait until Ranked Solo button is clickable
         WebDriverWait(self.driver, 5).until(
             EC.presence_of_element_located(
@@ -529,13 +398,10 @@ class Scrapper:
         ranked_solo_games_button.click()
 
         # Wait until stats are loaded
-        WebDriverWait(self.driver, 15).until(
-            EC.visibility_of_element_located(
-                (By.XPATH, '//*[@id="content-container"]/div/table/colgroup')
-            )
+        WebDriverWait(self.driver, 5).until(
+            EC.visibility_of_element_located((By.TAG_NAME, "colgroup"))
         )
 
-        # time.sleep(1)
         stats_on_all_champions = self.driver.find_elements(
             By.XPATH, '//*[@id="content-container"]/div/table/tbody/*'
         )
@@ -544,14 +410,14 @@ class Scrapper:
         for stat in stats_on_all_champions:
             if champion_string in stat.text.lower():
                 desired_stats = stat
-        # TODO Make sure that no empty stats are being saved because the elements take too long to load. The condition
-        #  of desired_stats is None is a bandaid so the program doesn't crash for now.
 
         if (
             "There are no results recorded." in stats_on_all_champions[0].text
             or desired_stats is None
         ):
-            return Player_stats_on_champ(player, champion_string, 0, 0, 0, 0, 0, 0)
+            return Player_stats_on_champ(
+                player, champion_string, -1, -1, -1, -1, -1, -1
+            )
 
         desired_stats_list = desired_stats.text.split("\n")
 
@@ -573,7 +439,11 @@ class Scrapper:
 
         total_games_played = wins + losses
         win_rate = float(desired_stats_list[4][:-1])
-        kda_ratio = float(desired_stats_list[5][:-2])
+        kda_ratio = (
+            float(desired_stats_list[5][:-2])
+            if "Perfect" not in desired_stats_list[5]
+            else float("inf")
+        )
         average_gold_per_minute = float(desired_stats_list[7].split(" ")[1][1:-1])
         average_cs_per_minute = float(desired_stats_list[7].split(" ")[3][1:-1])
         mastery = self.get_player_mastery_at_champion(player, champion)
@@ -589,3 +459,9 @@ class Scrapper:
             average_cs_per_minute,
         )
         return result
+
+
+scrapper = Scrapper(CHROME_DRIVER)
+
+for player in tqdm(scrapper.get_n_players_with_tier(200, Tier.DIAMOND)):
+    print(scrapper.get_player_stats_on_specific_champion(player, Champion.LUCIAN))
