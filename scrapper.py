@@ -1,7 +1,5 @@
 from datetime import datetime
-from statistics import mean
 
-from tqdm import tqdm
 from retry import retry
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -9,11 +7,9 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time, json, requests
-import os.path
-import re
 import csv
+import re
 from classes import *
-import pandas as pd
 
 # =========================== CONFIGS ===========================
 with open("config.json") as json_file:
@@ -25,17 +21,7 @@ CHROME_DRIVER = config["CHROME_DRIVER"]
 
 
 # ========================== CONSTANTS ==========================
-PLAYERS_CSV_PATH = "data/players.csv"
-PLAYERS_INFO_CSV_PATH = "data/playerInfo.csv"
-MATCHES_CSV_PATH = "data/matches.csv"
-PLAYER_STATS_ON_CHAMP_CSV_PATH = "data/playerStatsOnChamp.csv"
-CHAMPION_STATS_CSVS_PATHS = [
-    "data/champStats/Top.csv",
-    "data/champStats/Jungle.csv",
-    "data/champStats/Mid.csv",
-    "data/champStats/Adc.csv",
-    "data/champStats/Support.csv",
-]
+
 RETRY_DELAY = 3
 # ========================== CONSTANTS ==========================
 
@@ -61,14 +47,6 @@ def classes_to_csv(list_of_classes, csv_name):
         dict_writer.writerows(list_of_classes)
 
 
-def replace_all_enum_occurrences(input_str):
-    # Using regular expression to find and replace all enum occurrences in the string
-    pattern = r"<([A-Za-z0-9_.]+): \d+>"
-    # Replace each match with just the enum name
-    output_str = re.sub(pattern, r"\1", input_str)
-    return output_str
-
-
 class Scrapper:
     def __init__(self, webdriver_path: str):
         service = Service(executable_path=webdriver_path)
@@ -77,12 +55,12 @@ class Scrapper:
             "prefs", {"intl.accept_languages": "en,en_US"}
         )
         chrome_options.add_argument("--headless=new")
-        #chrome_options.add_experimental_option(
+        # chrome_options.add_experimental_option(
         #    "detach", True
-        #)  # Browser stays opened after executing commands
+        # )  # Browser stays opened after executing commands
 
         self.driver = webdriver.Chrome(service=service, options=chrome_options)
-        #self.driver.maximize_window()
+        # self.driver.maximize_window()
 
     def accept_op_gg_cookies(self):
         try:
@@ -96,18 +74,21 @@ class Scrapper:
             pass
 
     def get_only_solo_duo_games(self):
-        #start switching to solo duo tab
+        # start switching to solo duo tab
         ranked_game_type = self.driver.find_element(
             By.XPATH, '//button[@value="SOLORANKED"]'
         )
         ranked_game_type.click()
 
-        #make sure that solo duo tab is switched
+        # make sure that solo duo tab is switched
         start_time = time.time()
         while time.time() - start_time < 15:
             try:
-                if_solo_duo_in_games = ['Ranked Solo' in i.text for i in self.driver.find_elements(By.CLASS_NAME, 'e1gknzrf0')]
-                #print(sum([1 if 'Ranked Solo' in text else 0 for text in list_of_games]), " ", len(list_of_games))
+                if_solo_duo_in_games = [
+                    "Ranked Solo" in i.text
+                    for i in self.driver.find_elements(By.CLASS_NAME, "e1gknzrf0")
+                ]
+                # print(sum([1 if 'Ranked Solo' in text else 0 for text in list_of_games]), " ", len(list_of_games))
                 if False not in if_solo_duo_in_games:
                     break
             except:
@@ -595,569 +576,10 @@ class Scrapper:
         )
         return result
 
-    def scrap_player_info_to_csv(self, player: Player):
-        header = [
-            "date",
-            "player",
-            "overall_win_rate",
-            "rank",
-            "total_games_played",
-            "level",
-            "last_twenty_games_kda_ratio",
-            "last_twenty_games_kill_participation",
-            "preferred_positions",
-            "last_twenty_games_win_rate",
-        ]
-
-        csvExists = os.path.exists(PLAYERS_INFO_CSV_PATH)
-        date = datetime.today().strftime("%Y/%m/%d %H:%M:%S")
-        with open(PLAYERS_INFO_CSV_PATH, "a+", newline="") as file:
-            writer = csv.writer(file)
-
-            if not csvExists:
-                writer.writerow(header)
-
-            player_stats = self.get_player_info(player)
-            writer.writerow(
-                [
-                    date,
-                    #asdict(player_stats)[header[1]], darek changes
-                    player_stats.player,
-                    player_stats.overall_win_rate,
-                    player_stats.rank,
-                    player_stats.total_games_played,
-                    player_stats.level,
-                    player_stats.last_twenty_games_kda_ratio,
-                    player_stats.last_twenty_games_kill_participation,
-                    player_stats.preferred_positions,
-                    player_stats.last_twenty_games_win_rate,
-                ]
-            )
-
-    def scrap_n_player_matches_to_csv(self, player: Player, n: int):
-        header = [
-            "date",
-            "match_winner",
-            "player_red_1",
-            "player_red_2",
-            "player_red_3",
-            "player_red_4",
-            "player_red_5",
-            "player_blue_1",
-            "player_blue_2",
-            "player_blue_3",
-            "player_blue_4",
-            "player_blue_5",
-        ]
-
-        #for i in range(10):
-            #header.append('player_' + ['red_', 'blue_'][i//5] + str(i)) darek changes
-
-        csvExists = os.path.exists(MATCHES_CSV_PATH)
-        with open(MATCHES_CSV_PATH, "a+", newline="") as file:
-            writer = csv.writer(file)
-
-            if not csvExists:
-                writer.writerow(header)
-            date = datetime.today().strftime("%Y/%m/%d %H:%M:%S")
-
-            for match in self.get_n_recent_matches(n, player):
-                writer.writerow(
-                    [
-                        date,
-                        match.winner,
-                        *match.team_red,
-                        *match.team_blue,
-                    ]
-                )
-
-    def scrap_players_to_csv(self, no_of_players: int, tier: Tier):
-        header = ["date", "player_name", "player_tag"]
-
-        csvExists = os.path.exists(PLAYERS_CSV_PATH)
-        with open(PLAYERS_CSV_PATH, "a+", newline="") as file:
-            writer = csv.writer(file)
-
-            if not csvExists:
-                writer.writerow(header)
-            date = datetime.today().strftime("%Y/%m/%d %H:%M:%S")
-
-            for player in self.get_n_players_with_tier(no_of_players, tier):
-                writer.writerow([date, player.name, player.tag])
-
-    def scrap_champ_stats_to_csv(self, tier: Tier):
-        champion_column_names = [
-            champion_enum_to_name[champion] for champion in Champion
-        ]
-        header = [
-            "champion_name",
-            "tier",
-            "win_ratio",
-            "ban_ratio",
-            "pick_ratio",
-        ] + champion_column_names
-
-        csvExistsList = [
-            os.path.exists(CHAMPION_STATS_CSVS_PATHS[idx]) for idx in range(5)
-        ]
-
-        # csvExists = os.path.exists(PLAYERS_CSV_PATH)
-        with open(CHAMPION_STATS_CSVS_PATHS[0], "a+", newline="") as top, open(
-            CHAMPION_STATS_CSVS_PATHS[1], "a+", newline=""
-        ) as jungle, open(CHAMPION_STATS_CSVS_PATHS[2], "a+", newline="") as mid, open(
-            CHAMPION_STATS_CSVS_PATHS[3], "a+", newline=""
-        ) as adc, open(
-            CHAMPION_STATS_CSVS_PATHS[4], "a+", newline=""
-        ) as support:
-            writers = [csv.writer(file) for file in [top, jungle, mid, adc, support]]
-
-            for idx, writer in enumerate(writers):
-                if not csvExistsList[idx]:
-                    writer.writerow(header)
-
-            for champion in Champion:
-                champ_stats_list = self.get_champion_stats(champion, tier)
-
-                for champ_stats in champ_stats_list:
-                    champion_name = champion_enum_to_name[champ_stats.champion]
-                    lane = champ_stats.lane
-                    champion_tier = champion_tier_enum_to_name[
-                        champ_stats.champion_tier
-                    ]
-                    win_rate = champ_stats.win_rate
-                    ban_rate = champ_stats.ban_rate
-                    pick_rate = champ_stats.pick_rate
-                    match_up_win_rate = champ_stats.match_up_win_rate
-
-                    for champion in Champion:
-                        if not champion in match_up_win_rate:
-                            match_up_win_rate[champion] = -1.0
-
-                    writers[lane.value - 1].writerow(
-                        [
-                            champion_name,
-                            champion_tier,
-                            win_rate,
-                            ban_rate,
-                            pick_rate,
-                            *[
-                                match_up_win_rate[champion_name_to_enum[champion_name]]
-                                for champion_name in champion_column_names
-                            ],
-                        ]
-                    )
-
-    def scrap_player_stats_on_champ_to_csv(
-        self, player: Player, champion: Champion
-    ) -> None:
-        header = [
-            "player",
-            "champion",
-            "mastery",
-            "total_games_played",
-            "win_rate",
-            "kda_ratio",
-            "average_gold_per_minute",
-            "average_cs_per_minute",
-        ]
-        player_stats_on_champ = self.get_player_stats_on_specific_champion(
-            player, champion
-        )
-        csvExists = os.path.exists(PLAYER_STATS_ON_CHAMP_CSV_PATH)
-        with open(PLAYER_STATS_ON_CHAMP_CSV_PATH, "a+", newline="") as file:
-            writer = csv.writer(file)
-
-            if not csvExists:
-                writer.writerow(header)
-
-            writer.writerow(
-                [
-                    player_stats_on_champ.player,
-                    player_stats_on_champ.champion,
-                    player_stats_on_champ.mastery,
-                    player_stats_on_champ.total_games_played,
-                    player_stats_on_champ.win_rate,
-                    player_stats_on_champ.kda_ratio,
-                    player_stats_on_champ.average_gold_per_minute,
-                    player_stats_on_champ.average_cs_per_minute,
-                ]
-            )
-
-    def scrap_players_and_their_matches_to_csv(
-        self, num_of_players: int, num_of_matches: int, tier: Tier
-    ):
-        self.scrap_players_to_csv(num_of_players, tier)
-        players = self.get_players_from_csv()
-        for player in tqdm(players):
-            self.scrap_n_player_matches_to_csv(player, num_of_matches)
-
-    def scrap_data_necessary_to_process_matches(self):
-        # Przydałoby się sprawdzać czy nie robimy jakiś duplikatów graczy oraz tupli (Player, Champion)
-        def scrap_data_necessary_to_process_match(match: Opgg_match):
-            match_records = match.team_blue + match.team_red
-            for player, champion, lane in match_records:
-                self.scrap_player_info_to_csv(player)
-                self.scrap_player_stats_on_champ_to_csv(player, champion)
-
-        matches = self.get_matches_from_csv()
-        for match in matches:
-            scrap_data_necessary_to_process_match(match)
-
-    def scrap_data_vector_based_on_matches(self):
-        matches = self.get_matches_from_csv()
-        self.scrap_data_necessary_to_process_matches()
-        players_info = self.get_players_info_from_csv()
-        players_stats_on_champ = self.get_players_stats_on_champ_from_csv()
-        champions_stats = self.get_champ_stats_from_csv()
-
-        def get_entry_for_player(
-            player_info: Player_info, player_stats_on_champion: Player_stats_on_champ
-        ) -> DataEntryForPlayer:
-            return DataEntryForPlayer(
-                player_stats_on_champion.mastery,
-                player_stats_on_champion.win_rate,
-                player_stats_on_champion.kda_ratio,
-                player_stats_on_champion.average_gold_per_minute,
-                player_stats_on_champion.average_cs_per_minute,
-                player_info.overall_win_rate,
-            )
-
-        def get_entry_for_champion(
-            champion_stats: Champ_stats,
-            enemy_champion: Champion,
-        ) -> ChampionEntry:
-            return ChampionEntry(
-                champion_stats.champion_tier.value,
-                champion_stats.win_rate,
-                champion_stats.ban_rate,
-                champion_stats.pick_rate,
-                champion_stats.match_up_win_rate[enemy_champion],
-            )
-
-        def calculate_vector_entries(
-            players_info: dict[Player, Player_info],
-            players_stats_on_champion: dict[
-                Player, dict[Champion, Player_stats_on_champ]
-            ],
-            team: list[(Player, Champion, Lane)],
-            enemy_team: list[(Player, Champion, Lane)],
-        ) -> (list[DataEntryForPlayer], list[ChampionEntry], list[DataEntryTeam]):
-            player_entries = []
-            champion_entries = []
-            for idx, player, champion, lane in enumerate(team):
-                player_entries.append(
-                    get_entry_for_player(
-                        players_info[player],
-                        players_stats_on_champion[player][champion],
-                    )
-                )
-                champion_entries.append(
-                    get_entry_for_champion(
-                        champions_stats[lane][champion],
-                        enemy_team[idx][1],
-                    )
-                )
-            team_entry = DataEntryTeam(
-                sum(
-                    [
-                        player_entry.player_mastery_on_champ
-                        for player_entry in player_entries
-                    ]
-                ),
-                mean(
-                    [
-                        player_entry.player_mastery_on_champ
-                        for player_entry in player_entries
-                    ]
-                ),
-                mean(
-                    [player_entry.player_overall_wr for player_entry in player_entries]
-                ),
-                mean(
-                    [player_entry.player_wr_on_champ for player_entry in player_entries]
-                ),
-                mean(
-                    [champion_entry.match_up_wr for champion_entry in champion_entries]
-                ),
-            )
-            return player_entries, champion_entries, team_entry
-
-        data_vector = []
-        for match in matches:
-            blue_team = match.team_blue
-            red_team = match.team_red
-            match_result = match.winner
-            match_row = []
-
-            (
-                blue_team_players_entries,
-                blue_team_champions_entries,
-                blue_team_team_entry,
-            ) = calculate_vector_entries(
-                players_info, players_stats_on_champ, blue_team, red_team
-            )
-            (
-                red_team_players_entries,
-                red_team_champions_entries,
-                red_team_team_entry,
-            ) = calculate_vector_entries(
-                players_info, players_stats_on_champ, red_team, blue_team
-            )
-            # for idx, player, champion, lane in enumerate(blue_team):
-            #     blue_team_players_entries.append(
-            #         get_entry_for_player(
-            #             players_info[player],
-            #             players_stats_on_champ[player][champion],
-            #         )
-            #     )
-            #     blue_team_champions_entries.append(
-            #         get_entry_for_champion(
-            #             champions_stats[lane][champion],
-            #             red_team[idx][1],
-            #         )
-            #     )
-            # blue_team_team_entry = DataEntryTeam(
-            #     sum(
-            #         [
-            #             player_entry.player_mastery_on_champ
-            #             for player_entry in blue_team_players_entries
-            #         ]
-            #     ),
-            #     mean(
-            #         [
-            #             player_entry.player_mastery_on_champ
-            #             for player_entry in blue_team_players_entries
-            #         ]
-            #     ),
-            #     mean(
-            #         [
-            #             player_entry.player_overall_wr
-            #             for player_entry in blue_team_players_entries
-            #         ]
-            #     ),
-            #     mean(
-            #         [
-            #             player_entry.player_wr_on_champ
-            #             for player_entry in blue_team_players_entries
-            #         ]
-            #     ),
-            #     mean(
-            #         [
-            #             champion_entry.match_up_wr
-            #             for champion_entry in blue_team_champions_entries
-            #         ]
-            #     ),
-            # )
-            #
-            # red_team_players_entries = []
-            # red_team_champions_entries = []
-            # for idx, player, champion, lane in enumerate(red_team):
-            #     red_team_players_entries.append(
-            #         get_entry_for_player(
-            #             players_info[player],
-            #             players_stats_on_champ[player][champion],
-            #         )
-            #     )
-            #     red_team_champions_entries.append(
-            #         get_entry_for_champion(
-            #             champions_stats[lane][champion],
-            #             blue_team[idx][1],
-            #         )
-            #     )
-            # red_team_team_entry = DataEntryTeam(
-            #     sum(
-            #         [
-            #             player_entry.player_mastery_on_champ
-            #             for player_entry in red_team_players_entries
-            #         ]
-            #     ),
-            #     mean(
-            #         [
-            #             player_entry.player_mastery_on_champ
-            #             for player_entry in red_team_players_entries
-            #         ]
-            #     ),
-            #     mean(
-            #         [
-            #             player_entry.player_overall_wr
-            #             for player_entry in red_team_players_entries
-            #         ]
-            #     ),
-            #     mean(
-            #         [
-            #             player_entry.player_wr_on_champ
-            #             for player_entry in red_team_players_entries
-            #         ]
-            #     ),
-            #     mean(
-            #         [
-            #             champion_entry.match_up_wr
-            #             for champion_entry in red_team_champions_entries
-            #         ]
-            #     ),
-            # )
-
-            match_row.append(
-                DataVector(
-                    blue_team_players_entries,
-                    blue_team_champions_entries,
-                    blue_team_team_entry,
-                    red_team_players_entries,
-                    red_team_champions_entries,
-                    red_team_team_entry,
-                    match_result,
-                )
-            )
-
-            data_vector.append(match_row)
-
-    @staticmethod
-    def get_matches_from_csv() -> list[Opgg_match]:
-        matches = []
-        with open(MATCHES_CSV_PATH, "r", newline="") as file:
-            reader = csv.reader(file)
-
-            # skip header
-            next(reader, None)
-
-            for row in reader:
-                match_result = eval(row[1])
-                team_red = [
-                    eval(replace_all_enum_occurrences(player)) for player in row[2:7]
-                ]
-                team_blue = [
-                    eval(replace_all_enum_occurrences(player)) for player in row[7:12]
-                ]
-
-                matches.append(Opgg_match(team_red, team_blue, match_result))
-
-        return matches
-
-    @staticmethod
-    def get_players_from_csv() -> list[Player]:
-        players = []
-        with open(PLAYERS_CSV_PATH, "r", newline="") as file:
-            reader = csv.reader(file)
-
-            # skip header
-            next(reader, None)
-
-            for row in reader:
-                players.append(Player(row[1], row[2]))
-
-        return players
-
-    @staticmethod
-    def get_players_info_from_csv() -> dict[Player, Player_info]:
-        with open(PLAYERS_INFO_CSV_PATH, "r", newline="") as file:
-            reader = csv.reader(file)
-
-            # skip header
-            next(reader, None)
-            players_info = {}
-            for row in reader:
-                player = eval(row[1])
-                wr = float(row[2])
-                rank = row[3]
-                total_games_played = int(row[4])
-                level = int(row[5])
-                last_twenty_games_kda_ratio = float(row[6])
-                last_twenty_games_kill_participation = float(row[7])
-                preferred_positions = eval(replace_all_enum_occurrences(row[8]))
-                last_twenty_games_win_rate = float(row[9])
-
-                players_info[player] = Player_info(
-                    player,
-                    wr,
-                    rank,
-                    total_games_played,
-                    level,
-                    last_twenty_games_kda_ratio,
-                    last_twenty_games_kill_participation,
-                    preferred_positions,
-                    last_twenty_games_win_rate,
-                )
-
-        return players_info
-
-    # Assuming that -1 means that there is no match up
-    @staticmethod
-    def get_champ_stats_from_csv() -> Dict[Lane, Dict[Champion, Champ_stats]]:
-        # Result dict as in function return type
-        res = {}
-        # Iterate over all lanes
-        for lane in Lane:
-            # Choose a correct file from list
-            file = CHAMPION_STATS_CSVS_PATHS[lane.value - 1]
-            # nested dict (Dict[Champion, Champ_stats])
-            lane_dict = {}
-            with open(file, "r", newline="") as f:
-                reader = csv.reader(f)
-                header = pd.read_csv(file).columns
-                row_length = len(header)
-
-                next(reader, None)
-
-                for row in reader:
-                    champion = champion_name_to_enum[row[0]]
-                    tier = champion_tier_name_to_enum[row[1]]
-                    winrate = float(row[2])
-                    banrate = float(row[3])
-                    pickrate = float(row[4])
-                    matchups = {
-                        champion_name_to_enum[header[i]]: float(row[i])
-                        for i in range(5, row_length)
-                    }
-                    lane_dict[champion] = Champ_stats(
-                        champion, lane, tier, winrate, banrate, pickrate, matchups
-                    )
-
-            res[lane] = lane_dict
-
-        return res
-
-    @staticmethod
-    def get_players_stats_on_champ_from_csv() -> (
-        Dict[Player, Dict[Champion, Player_stats_on_champ]]
-    ):
-        with open(PLAYER_STATS_ON_CHAMP_CSV_PATH, "r", newline="") as file:
-            reader = csv.reader(file)
-
-            # skip header
-            next(reader, None)
-
-            players_stats_on_champ = {}
-            for row in reader:
-                player = eval(row[0])
-                champion = champion_name_to_enum[row[1]]
-                mastery = int(row[2])
-                total_games_played = int(row[3])
-                win_rate = float(row[4])
-                kda_ratio = float(row[5])
-                average_gold_per_minute = float(row[6])
-                average_cs_per_minute = float(row[7])
-                player_stats_on_champ = Player_stats_on_champ(
-                    player,
-                    champion,
-                    mastery,
-                    total_games_played,
-                    win_rate,
-                    kda_ratio,
-                    average_gold_per_minute,
-                    average_cs_per_minute,
-                )
-
-                if player in players_stats_on_champ:
-                    players_stats_on_champ[player][champion] = player_stats_on_champ
-                else:
-                    players_stats_on_champ[player] = {champion: player_stats_on_champ}
-
-        return players_stats_on_champ
-
 
 scrapper = Scrapper(CHROME_DRIVER)
 
-#scrapper.scrap_players_and_their_matches_to_csv(200, 50, Tier.PLATINUM) works
+# scrapper.scrap_players_and_their_matches_to_csv(200, 50, Tier.PLATINUM) works
 
 # scrapper.scrap_data_necessary_to_process_matches()
 # scrapper.scrap_champ_stats_to_csv(Tier.EMERALD)
