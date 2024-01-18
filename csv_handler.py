@@ -63,7 +63,6 @@ class CsvHandler:
             writer.writerow(
                 [
                     date,
-                    # asdict(player_stats)[header[1]], darek changes
                     player_stats.player,
                     player_stats.overall_win_rate,
                     player_stats.rank,
@@ -91,9 +90,6 @@ class CsvHandler:
             "player_blue_4",
             "player_blue_5",
         ]
-
-        # for i in range(10):
-        # header.append('player_' + ['red_', 'blue_'][i//5] + str(i)) darek changes
 
         csvExists = os.path.exists(MATCHES_CSV_PATH)
         with open(MATCHES_CSV_PATH, "a+", newline="") as file:

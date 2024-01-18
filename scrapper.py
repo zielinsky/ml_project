@@ -609,5 +609,5 @@ scrapper = Scrapper(CHROME_DRIVER)
 
 # print(scrapper.get_champion_stats(Champion.MISS_FORTUNE, Tier.IRON))
 # print(scrapper.get_player_mastery_at_champion(Player("DBicek", "EUNE"), Champion.TEEMO))
-#
+
 print("done")
