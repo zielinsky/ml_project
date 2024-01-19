@@ -356,6 +356,7 @@ class Scrapper:
             counter_picks_trs = self.driver.find_elements(
                 By.XPATH, '//tr[@class="' + counter_picks_class + '"]'
             )
+
             for counter_pick_tr in counter_picks_trs:
                 counter_pick_champion = champion_name_to_enum[
                     remove_non_alpha_characters(
