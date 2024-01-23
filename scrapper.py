@@ -126,16 +126,6 @@ class Scrapper:
             "e4p6qc61",
         )
 
-        page = self.driver.find_element(
-            By.CLASS_NAME,
-            "e1mwhike0",
-        )
-
-        page.find_elements(
-            By.CLASS_NAME,
-            "e1mwhike0",
-        )
-
         matches = []
 
         for match_div in matches_div[:n]:
