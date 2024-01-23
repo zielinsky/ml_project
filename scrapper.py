@@ -295,6 +295,7 @@ class Scrapper:
             last_twenty_games_win_rate,
         )
 
+    @retry((Exception), tries=3, delay=RETRY_DELAY, backoff=0)
     def get_champion_stats(self, champion: Champion, tier: Tier) -> list[Champ_stats]:
         counter_picks_class = "css-12a3bv1 ee0p1b91"
 
@@ -329,7 +330,7 @@ class Scrapper:
                         pass
 
             champion_tier = champion_tier_name_to_enum[
-                self.driver.find_element(By.CLASS_NAME, "tier-info").text
+                self.driver.find_element(By.CLASS_NAME, "tier-icon").find_element(By.TAG_NAME, "img").get_attribute("alt").upper() + " Tier"
             ]
 
             win_ban_pick_elems = lane_elem.find_elements(
