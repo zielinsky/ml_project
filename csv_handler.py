@@ -153,7 +153,7 @@ class CsvHandler:
                 if not csvExistsList[idx]:
                     writer.writerow(header)
 
-            for champion in tqdm(Champion):
+            for champion in Champion:
                 champ_stats_list = self.scrapper.get_champion_stats(champion, tier)
 
                 for champ_stats in champ_stats_list:
