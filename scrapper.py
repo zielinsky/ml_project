@@ -317,8 +317,7 @@ class Scrapper:
         for lane_elem in lane_elements:
             lane_name = lane_elem.get_attribute("data-value")
             if lane_elem != lane_elements[0]:
-                old_lane_flag = self.driver.find_element(By.CLASS_NAME, "ee92tbj0").text.split('.')[0]
-                new_lane_flag = self.driver.find_element(By.CLASS_NAME, "ee92tbj0").text.split('.')[0]
+                old_lane_flag = new_lane_flag = self.driver.find_element(By.CLASS_NAME, "ee92tbj0").text.split('.')[0]
                 lane_a = lane_elem.find_element(By.TAG_NAME, "a")
                 lane_a.click()
 
@@ -329,6 +328,7 @@ class Scrapper:
                     except:
                         pass
 
+            #print(self.driver.find_element(By.CLASS_NAME, "tier-icon").find_element(By.TAG_NAME, "img").get_attribute("alt"))
             champion_tier = champion_tier_name_to_enum[
                 self.driver.find_element(By.CLASS_NAME, "tier-icon").find_element(By.TAG_NAME, "img").get_attribute("alt").upper() + " Tier"
             ]
