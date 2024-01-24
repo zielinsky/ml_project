@@ -34,7 +34,7 @@ def replace_all_enum_occurrences(input_str):
 
 
 class CsvHandler:
-    def __init__(self, scrapper: Scrapper) -> None:
+    def __init__(self, scrapper: Scrapper):
         self.scrapper = scrapper
 
     def scrap_player_info_to_csv(self, player: Player):
