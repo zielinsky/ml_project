@@ -1,6 +1,5 @@
 import queue
 from datetime import datetime
-from tqdm import tqdm
 from retry import retry
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -11,6 +10,7 @@ import time, json, requests
 import csv
 import re
 from classes import *
+from functools import wraps
 
 # =========================== CONFIGS ===========================
 with open("config.json") as json_file:
@@ -49,12 +49,53 @@ def classes_to_csv(list_of_classes, csv_name):
         dict_writer.writerows(list_of_classes)
 
 
-class Scrapper:
-    def __init__(self, webdriver_path: str):
-        self.op_gg_cookies_accepted = False
-        self.log_cookies_accepted = False
+def decorate_all_functions(function_decorator):
+    def decorator(cls):
+        for name, obj in vars(cls).items():
+            if callable(obj):
+                setattr(cls, name, function_decorator(cls, obj))
+        return cls
 
-        service = Service(executable_path=webdriver_path)
+    return decorator
+
+
+def refresh_driver(cls, func):
+    @wraps(func)
+    def wrapper(*args, **kw):
+        try:
+            res = func(*args, **kw)
+        finally:
+            cls.num_of_query += 1
+            if cls.num_of_query > 5:
+                if cls.driver is not None:
+                    cls.driver.quit()
+
+                service = Service(executable_path=CHROME_DRIVER)
+                chrome_options = webdriver.ChromeOptions()
+                chrome_options.add_experimental_option(
+                    "prefs",
+                    {
+                        "intl.accept_languages": "en,en_US",
+                        "profile.managed_default_content_settings.images": 2,
+                    },
+                )
+                cls.driver = webdriver.Chrome(options=chrome_options, service=service)
+                cls.num_of_query = 0
+        return res
+
+    return wrapper
+
+
+@decorate_all_functions(refresh_driver)
+class Scrapper:
+    num_of_query = 0
+    driver = None
+
+    def _create_web_driver(self):
+        if self.driver is not None:
+            self.driver.exit()
+
+        service = Service(executable_path=CHROME_DRIVER)
         chrome_options = webdriver.ChromeOptions()
         chrome_options.add_experimental_option(
             "prefs",
@@ -64,12 +105,18 @@ class Scrapper:
             },
         )
         # chrome_options.add_argument("--headless=new")
-        chrome_options.add_argument("--disable-cache")
-        chrome_options.add_experimental_option(
-            "detach",
-            True,
-        )  # Browser stays opened after executing commands
+        # chrome_options.add_experimental_option(
+        #     "detach",
+        #     True,
+        # )  # Browser stays opened after executing commands
         self.driver = webdriver.Chrome(options=chrome_options, service=service)
+
+    def __init__(self, webdriver_path: str):
+        self.op_gg_cookies_accepted = False
+        self.log_cookies_accepted = False
+        self.webdriver_path = webdriver_path
+
+        self._create_web_driver()
 
     def accept_op_gg_cookies(self):
         if not self.op_gg_cookies_accepted:
@@ -466,7 +513,7 @@ class Scrapper:
 
 scrapper = Scrapper(CHROME_DRIVER)
 
-players = scrapper.get_n_players_with_tier(500, Tier.DIAMOND)
+players = scrapper.get_n_players_with_tier(100, Tier.PLATINUM)
 players_queue = queue.Queue()
 [players_queue.put(i) for i in players]
 
