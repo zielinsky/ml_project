@@ -1,8 +1,6 @@
-import queue
 from datetime import datetime
 from retry import retry
 from selenium import webdriver
-from selenium.common import NoSuchElementException
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -41,14 +39,9 @@ def _create_web_driver():
             "profile.managed_default_content_settings.images": 2,
         },
     )
-    # user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36"
-    # chrome_options.add_argument(f"user-agent={user_agent}")
-    # chrome_options.add_argument("--no-sandbox")
-    # chrome_options.add_argument("--window-size=1920,1080")
-    # chrome_options.add_argument("--disable-gpu")
-    # chrome_options.add_argument("--allow-running-insecure-content")
-    # chrome_options.add_argument("--headless=new")
-    # chrome_options.add_argument("--headless=new")
+    user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36"
+    chrome_options.add_argument(f"user-agent={user_agent}")
+    chrome_options.add_argument("--headless=new")
     # chrome_options.add_experimental_option(
     # "detach",
     # True,
@@ -450,7 +443,6 @@ class Scrapper:
         return champion_stats
 
     # !!!! work only without headless mode !!!!
-    @retry((Exception), tries=5, delay=RETRY_DELAY, backoff=0)
     def get_player_stats_on_specific_champion(
         self, player: Player, champion: Champion
     ) -> Player_stats_on_champ:
@@ -470,6 +462,15 @@ class Scrapper:
             "Page taking too long to load",
         )
 
+        # when player not found on league of graphs
+        try:
+            driver.find_element(By.CLASS_NAME, "solo-text")
+            return Player_stats_on_champ(
+                player, champion_string, -1, -1, -1, -1, -1, -1
+            )
+        except:
+            pass
+
         stats_on_all_champions = driver.find_element(
             By.XPATH, "//div[@data-tab-id='championsData-soloqueue']"
         ).find_elements(By.TAG_NAME, "tr")[1:]
@@ -478,6 +479,7 @@ class Scrapper:
         for stat in stats_on_all_champions:
             if champion_string in stat.find_element(By.CLASS_NAME, "name").text.lower():
                 desired_stats = stat
+                break
 
         if desired_stats is None:
             return Player_stats_on_champ(
@@ -524,16 +526,10 @@ class Scrapper:
 
 scrapper = Scrapper(CHROME_DRIVER)
 
-players = scrapper.get_n_players_with_tier(400, Tier.PLATINUM)
-# players_queue = queue.Queue()
-# [players_queue.put(i) for i in players]
-#
-# while not players_queue.empty():
-#     player = players_queue.get()
-#     try:
-#         print(scrapper.get_player_stats_on_specific_champion(player, Champion.AKALI))
-#     except:
-#         players_queue.put(player)
+players = scrapper.get_n_players_with_tier(1000, Tier.PLATINUM)
 
 for player in players:
-    print(scrapper.get_player_stats_on_specific_champion(player, Champion.AKALI))
+    try:
+        print(scrapper.get_player_stats_on_specific_champion(player, Champion.AKALI))
+    except:
+        driver.get_screenshot_as_file(f"{player.get_opgg_name()}.jpg")
