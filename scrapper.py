@@ -1,15 +1,17 @@
+import csv
+import json
+import re
+
+import requests
+import time
 from datetime import datetime
+
 from retry import retry
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-import time, json, requests
-import csv
-import re
-
-from tqdm import tqdm
 
 from classes import *
 from functools import wraps
@@ -82,7 +84,7 @@ def decorate_all_functions(function_decorator, exclude: list[str] = None):
     def decorator(cls):
         for name, obj in vars(cls).items():
             if callable(obj) and (
-                exclude is None or (exclude != None and name not in exclude)
+                exclude is None or (exclude is not None and name not in exclude)
             ):
                 setattr(cls, name, function_decorator(obj))
         return cls
@@ -151,7 +153,8 @@ class Scrapper:
             except:
                 pass
 
-    def get_only_solo_duo_games(self):
+    @staticmethod
+    def get_only_solo_duo_games():
         # start switching to solo duo tab
         ranked_game_type = driver.find_element(
             By.XPATH, '//button[@value="SOLORANKED"]'
@@ -172,8 +175,8 @@ class Scrapper:
             except:
                 pass
 
-    @retry((Exception), tries=3, delay=RETRY_DELAY, backoff=0)
-    def get_n_recent_matches(self, n: int, player: Player) -> list[Opgg_match]:
+    @retry(Exception, tries=3, delay=RETRY_DELAY, backoff=0)
+    def get_n_recent_matches(self, n: int, player: Player) -> list[OpggMatch]:
         driver.get(f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}")
         self.accept_op_gg_cookies()
         self.get_only_solo_duo_games()
@@ -262,11 +265,12 @@ class Scrapper:
                 else MatchResult.RED
             )
 
-            matches.append(Opgg_match(red_team, blue_team, match_result))
+            matches.append(OpggMatch(red_team, blue_team, match_result))
 
         return matches
 
-    def get_n_players_with_tier(self, n: int, tier: Tier) -> list[Player]:
+    @staticmethod
+    def get_n_players_with_tier(n: int, tier: Tier) -> list[Player]:
         def get_n_players_on_page(n: int, page: int) -> list[Player]:
             driver.get(
                 f"https://www.op.gg/leaderboards/tier?tier={tier.value}&page={page}"
@@ -301,7 +305,7 @@ class Scrapper:
         return response.json()["championPoints"]
 
     @staticmethod
-    def get_player_info(player: Player) -> Player_info:
+    def get_player_info(player: Player) -> PlayerInfo:
         driver.get(
             f"https://www.leagueofgraphs.com/summoner/eune/{player.get_opgg_name()}#championsData-soloqueue"
         )
@@ -331,7 +335,7 @@ class Scrapper:
         #     for lane, pos in zip(Lane, page.find_elements(By.CLASS_NAME, "gauge"))
         # ]  # height: 5.56%;
 
-        return Player_info(
+        return PlayerInfo(
             player,
             overall_win_rate,
             rank,
@@ -343,8 +347,8 @@ class Scrapper:
             -1,
         )
 
-    @retry((Exception), tries=3, delay=RETRY_DELAY, backoff=0)
-    def get_champion_stats(self, champion: Champion, tier: Tier) -> list[Champ_stats]:
+    @retry(Exception, tries=3, delay=RETRY_DELAY, backoff=0)
+    def get_champion_stats(self, champion: Champion, tier: Tier) -> list[ChampStats]:
         counter_picks_class = "css-12a3bv1 ee0p1b91"
 
         # load page
@@ -412,7 +416,7 @@ class Scrapper:
                 counter_picks[counter_pick_champion] = counter_pick_win_ratio
 
             champion_stats.append(
-                Champ_stats(
+                ChampStats(
                     champion,
                     lane_name_to_enum[lane_name],
                     champion_tier,
@@ -426,9 +430,10 @@ class Scrapper:
         return champion_stats
 
     # sometimes the site blocks one player for n sec
+    @staticmethod
     def get_player_stats_on_specific_champion(
-        self, player: Player, champion: Champion
-    ) -> Player_stats_on_champ:
+        player: Player, champion: Champion
+    ) -> PlayerStatsOnChamp:
         global driver
         global num_of_query
 
@@ -448,9 +453,7 @@ class Scrapper:
         # when player not found on league of graphs
         try:
             driver.find_element(By.CLASS_NAME, "solo-text")
-            return Player_stats_on_champ(
-                player, champion_string, -1, -1, -1, -1, -1, -1
-            )
+            return PlayerStatsOnChamp(player, champion_string, -1, -1, -1, -1, -1, -1)
         except:
             pass
 
@@ -465,9 +468,7 @@ class Scrapper:
                 break
 
         if desired_stats is None:
-            return Player_stats_on_champ(
-                player, champion_string, -1, -1, -1, -1, -1, -1
-            )
+            return PlayerStatsOnChamp(player, champion_string, -1, -1, -1, -1, -1, -1)
 
         tds = desired_stats.find_elements(By.TAG_NAME, "td")
         total_games_played = int(tds[1].text)
@@ -493,7 +494,7 @@ class Scrapper:
         )
         mastery = int(re.search(r"Points: (\d+)", mastery_txt).group(1))
 
-        result = Player_stats_on_champ(
+        result = PlayerStatsOnChamp(
             player,
             champion_string,
             mastery,

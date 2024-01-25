@@ -9,7 +9,7 @@ class DataVector:
 
     def get_data_necessary_to_process_matches(self):
         # Przydałoby się sprawdzać czy nie robimy jakiś duplikatów graczy oraz tupli (Player, Champion)
-        def scrap_data_necessary_to_process_match(match: Opgg_match):
+        def scrap_data_necessary_to_process_match(match: OpggMatch):
             match_records = match.team_blue + match.team_red
             for player, champion, lane in tqdm(match_records):
                 self.csv_handler.scrap_player_info_to_csv(player)
@@ -27,7 +27,7 @@ class DataVector:
         champions_stats = self.csv_handler.get_champ_stats_from_csv()
 
         def get_entry_for_player(
-            player_info: Player_info, player_stats_on_champion: Player_stats_on_champ
+            player_info: PlayerInfo, player_stats_on_champion: PlayerStatsOnChamp
         ) -> DataEntryForPlayer:
             return DataEntryForPlayer(
                 player_stats_on_champion.mastery,
@@ -39,7 +39,7 @@ class DataVector:
             )
 
         def get_entry_for_champion(
-            champion_stats: Champ_stats,
+            champion_stats: ChampStats,
             enemy_champion: Champion,
         ) -> ChampionEntry:
             return ChampionEntry(
@@ -51,10 +51,8 @@ class DataVector:
             )
 
         def calculate_vector_entries(
-            players_info: dict[Player, Player_info],
-            players_stats_on_champion: dict[
-                Player, dict[Champion, Player_stats_on_champ]
-            ],
+            players_info: dict[Player, PlayerInfo],
+            players_stats_on_champion: dict[Player, dict[Champion, PlayerStatsOnChamp]],
             team: list[(Player, Champion, Lane)],
             enemy_team: list[(Player, Champion, Lane)],
         ) -> (list[DataEntryForPlayer], list[ChampionEntry], list[DataEntryTeam]):
