@@ -288,7 +288,8 @@ class Scrapper:
 
         return players
 
-    def get_player_puuid(self, player: Player) -> str:
+    @staticmethod
+    def get_player_puuid(player: Player) -> str:
         api_url = f"https://europe.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{player.name}/{player.tag}?api_key={RIOT_API_KEY}"
         response = requests.get(api_url)
         return response.json()["puuid"]
@@ -299,74 +300,8 @@ class Scrapper:
         response = requests.get(api_url)
         return response.json()["championPoints"]
 
-    # def get_player_info(self, player: Player) -> Player_info:
-    #     driver.get(f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}")
-    #     # accept cookies
-    #     self.accept_op_gg_cookies()
-    #
-    #     try:
-    #         self.get_only_solo_duo_games()
-    #     except:
-    #         return self.get_player_info(player)
-    #
-    #     page = driver.find_element(By.ID, "__next")
-    #
-    #     def find_on_page(name):
-    #         return page.find_element(By.CLASS_NAME, name)
-    #
-    #     try:
-    #         find_on_page("win-lose-container")
-    #     except:
-    #         # TODO We need to skip matches that have any unranked players
-    #         return Player_info(
-    #             player, None, None, None, None, None, None, None, None
-    #         )  # unranked player
-    #
-    #     chars_to_strip = "QWERTYUIOPASDFGHJKLZXCVBNM qwertyuiopasdfghjklzxcvbnm,%:/;"
-    #
-    #     overall_win_rate = (
-    #         float(find_on_page("ratio").text.strip(chars_to_strip)) / 100
-    #     )  # Win Rate 17%
-    #
-    #     rank = find_on_page("tier").text  # Gold 4
-    #
-    #     temp = (
-    #         find_on_page("win-lose").text.replace("W", "").replace("L", "").split(" ")
-    #     )  # 15W 17L
-    #     total_games_played = int(temp[0]) + int(temp[1])
-    #
-    #     level = int(find_on_page("level").text)  # 573
-    #
-    #     last_twenty_games_kda_ratio = float(
-    #         find_on_page("stats-box").find_element(By.CLASS_NAME, "ratio").text[:-2]
-    #     )  # 2.14:1
-    #
-    #     last_twenty_games_kill_participation = (
-    #         float(find_on_page("kill-participantion").text.strip(chars_to_strip)) / 100
-    #     )  # P/Kill 43%
-    #
-    #     preferred_positions = [
-    #         (lane, float(pos.get_attribute("style").strip(chars_to_strip)) / 100)
-    #         for lane, pos in zip(Lane, page.find_elements(By.CLASS_NAME, "gauge"))
-    #     ]  # height: 5.56%;
-    #
-    #     last_twenty_games_win_rate = (
-    #         float(find_on_page("chart").text.strip(chars_to_strip)) / 100
-    #     )  # 12%
-    #
-    #     return Player_info(
-    #         player,
-    #         overall_win_rate,
-    #         rank,
-    #         total_games_played,
-    #         level,
-    #         last_twenty_games_kda_ratio,
-    #         last_twenty_games_kill_participation,
-    #         preferred_positions,
-    #         last_twenty_games_win_rate,
-    #     )
-
-    def get_player_info(self, player: Player) -> Player_info:
+    @staticmethod
+    def get_player_info(player: Player) -> Player_info:
         driver.get(
             f"https://www.leagueofgraphs.com/summoner/eune/{player.get_opgg_name()}#championsData-soloqueue"
         )
@@ -389,7 +324,7 @@ class Scrapper:
 
         level = int(
             driver.find_element(By.CLASS_NAME, "bannerSubtitle").text.split(" ")[1]
-        )  # 573
+        )
 
         # preferred_positions = [
         #     (lane, float(pos.get_attribute("style").strip(chars_to_strip)) / 100)
@@ -570,11 +505,3 @@ class Scrapper:
         )
 
         return result
-
-
-#
-#
-# scrapper = Scrapper()
-#
-# for player in tqdm(scrapper.get_n_players_with_tier(1000, Tier.DIAMOND)):
-#     print(scrapper.get_player_stats_on_specific_champion(player, Champion.AKALI))
