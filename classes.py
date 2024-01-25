@@ -76,14 +76,14 @@ champion_tier_enum_to_name = {
 
 
 @dataclass
-class Opgg_match:
+class OpggMatch:
     team_red: list[(Player, Champion, Lane)]
     team_blue: list[(Player, Champion, Lane)]
     winner: MatchResult
 
 
 @dataclass
-class Player_stats_on_champ:
+class PlayerStatsOnChamp:
     player: Player
     champion: Champion
     mastery: int
@@ -95,7 +95,7 @@ class Player_stats_on_champ:
 
 
 @dataclass
-class Player_info:
+class PlayerInfo:
     player: Player
     overall_win_rate: float
     rank: str  # type Tier? ===========================================================================================
@@ -112,7 +112,7 @@ class Player_info:
 
 
 @dataclass
-class Champ_stats:
+class ChampStats:
     champion: Champion
     lane: Lane
     champion_tier: ChampionTier

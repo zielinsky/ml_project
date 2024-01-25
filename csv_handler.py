@@ -51,29 +51,32 @@ class CsvHandler:
             "last_twenty_games_win_rate",
         ]
 
-        csvExists = os.path.exists(PLAYERS_INFO_CSV_PATH)
+        csv_exists = os.path.exists(PLAYERS_INFO_CSV_PATH)
         date = datetime.today().strftime("%Y/%m/%d %H:%M:%S")
         with open(PLAYERS_INFO_CSV_PATH, "a+", newline="") as file:
             writer = csv.writer(file)
 
-            if not csvExists:
+            if not csv_exists:
                 writer.writerow(header)
 
             player_stats = self.scrapper.get_player_info(player)
-            writer.writerow(
-                [
-                    date,
-                    player_stats.player,
-                    player_stats.overall_win_rate,
-                    player_stats.rank,
-                    player_stats.total_games_played,
-                    player_stats.level,
-                    player_stats.last_twenty_games_kda_ratio,
-                    player_stats.last_twenty_games_kill_participation,
-                    player_stats.preferred_positions,
-                    player_stats.last_twenty_games_win_rate,
-                ]
-            )
+            if player_stats:
+                writer.writerow(
+                    [
+                        date,
+                        player_stats.player,
+                        player_stats.overall_win_rate,
+                        player_stats.rank,
+                        player_stats.total_games_played,
+                        player_stats.level,
+                        player_stats.last_twenty_games_kda_ratio,
+                        player_stats.last_twenty_games_kill_participation,
+                        player_stats.preferred_positions,
+                        player_stats.last_twenty_games_win_rate,
+                    ]
+                )
+            else:
+                writer.writerow([date, player])
 
     def scrap_n_player_matches_to_csv(self, player: Player, n: int):
         header = [
@@ -91,11 +94,11 @@ class CsvHandler:
             "player_blue_5",
         ]
 
-        csvExists = os.path.exists(MATCHES_CSV_PATH)
+        csv_exists = os.path.exists(MATCHES_CSV_PATH)
         with open(MATCHES_CSV_PATH, "a+", newline="") as file:
             writer = csv.writer(file)
 
-            if not csvExists:
+            if not csv_exists:
                 writer.writerow(header)
             date = datetime.today().strftime("%Y/%m/%d %H:%M:%S")
 
@@ -112,11 +115,11 @@ class CsvHandler:
     def scrap_players_to_csv(self, no_of_players: int, tier: Tier):
         header = ["date", "player_name", "player_tag"]
 
-        csvExists = os.path.exists(PLAYERS_CSV_PATH)
+        csv_exists = os.path.exists(PLAYERS_CSV_PATH)
         with open(PLAYERS_CSV_PATH, "a+", newline="") as file:
             writer = csv.writer(file)
 
-            if not csvExists:
+            if not csv_exists:
                 writer.writerow(header)
             date = datetime.today().strftime("%Y/%m/%d %H:%M:%S")
 
@@ -135,7 +138,7 @@ class CsvHandler:
             "pick_ratio",
         ] + champion_column_names
 
-        csvExistsList = [
+        csv_exists_list = [
             os.path.exists(CHAMPION_STATS_CSVS_PATHS[idx]) for idx in range(5)
         ]
 
@@ -150,7 +153,7 @@ class CsvHandler:
             writers = [csv.writer(file) for file in [top, jungle, mid, adc, support]]
 
             for idx, writer in enumerate(writers):
-                if not csvExistsList[idx]:
+                if not csv_exists_list[idx]:
                     writer.writerow(header)
 
             for champion in Champion:
@@ -167,9 +170,9 @@ class CsvHandler:
                     pick_rate = champ_stats.pick_rate
                     match_up_win_rate = champ_stats.match_up_win_rate
 
-                    for champion in Champion:
-                        if not champion in match_up_win_rate:
-                            match_up_win_rate[champion] = -1.0
+                    for match_up_champ in Champion:
+                        if match_up_champ not in match_up_win_rate:
+                            match_up_win_rate[match_up_champ] = -1.0
 
                     writers[lane.value - 1].writerow(
                         [
@@ -201,11 +204,11 @@ class CsvHandler:
         player_stats_on_champ = self.scrapper.get_player_stats_on_specific_champion(
             player, champion
         )
-        csvExists = os.path.exists(PLAYER_STATS_ON_CHAMP_CSV_PATH)
+        csv_exists = os.path.exists(PLAYER_STATS_ON_CHAMP_CSV_PATH)
         with open(PLAYER_STATS_ON_CHAMP_CSV_PATH, "a+", newline="") as file:
             writer = csv.writer(file)
 
-            if not csvExists:
+            if not csv_exists:
                 writer.writerow(header)
 
             writer.writerow(
@@ -230,7 +233,7 @@ class CsvHandler:
             self.scrap_n_player_matches_to_csv(player, num_of_matches)
 
     @staticmethod
-    def get_matches_from_csv() -> list[Opgg_match]:
+    def get_matches_from_csv() -> list[OpggMatch]:
         matches = []
         with open(MATCHES_CSV_PATH, "r", newline="") as file:
             reader = csv.reader(file)
@@ -247,7 +250,7 @@ class CsvHandler:
                     eval(replace_all_enum_occurrences(player)) for player in row[7:12]
                 ]
 
-                matches.append(Opgg_match(team_red, team_blue, match_result))
+                matches.append(OpggMatch(team_red, team_blue, match_result))
 
         return matches
 
@@ -266,7 +269,7 @@ class CsvHandler:
         return players
 
     @staticmethod
-    def get_players_info_from_csv() -> dict[Player, Player_info]:
+    def get_players_info_from_csv() -> dict[Player, PlayerInfo]:
         with open(PLAYERS_INFO_CSV_PATH, "r", newline="") as file:
             reader = csv.reader(file)
 
@@ -284,7 +287,7 @@ class CsvHandler:
                 preferred_positions = eval(replace_all_enum_occurrences(row[8]))
                 last_twenty_games_win_rate = float(row[9])
 
-                players_info[player] = Player_info(
+                players_info[player] = PlayerInfo(
                     player,
                     wr,
                     rank,
@@ -300,7 +303,7 @@ class CsvHandler:
 
     # Assuming that -1 means that there is no match up
     @staticmethod
-    def get_champ_stats_from_csv() -> Dict[Lane, Dict[Champion, Champ_stats]]:
+    def get_champ_stats_from_csv() -> Dict[Lane, Dict[Champion, ChampStats]]:
         # Result dict as in function return type
         res = {}
         # Iterate over all lanes
@@ -319,15 +322,15 @@ class CsvHandler:
                 for row in reader:
                     champion = champion_name_to_enum[row[0]]
                     tier = champion_tier_name_to_enum[row[1]]
-                    winrate = float(row[2])
-                    banrate = float(row[3])
-                    pickrate = float(row[4])
+                    win_rate = float(row[2])
+                    ban_rate = float(row[3])
+                    pick_rate = float(row[4])
                     matchups = {
                         champion_name_to_enum[header[i]]: float(row[i])
                         for i in range(5, row_length)
                     }
-                    lane_dict[champion] = Champ_stats(
-                        champion, lane, tier, winrate, banrate, pickrate, matchups
+                    lane_dict[champion] = ChampStats(
+                        champion, lane, tier, win_rate, ban_rate, pick_rate, matchups
                     )
 
             res[lane] = lane_dict
@@ -336,7 +339,7 @@ class CsvHandler:
 
     @staticmethod
     def get_players_stats_on_champ_from_csv() -> (
-        Dict[Player, Dict[Champion, Player_stats_on_champ]]
+        Dict[Player, Dict[Champion, PlayerStatsOnChamp]]
     ):
         with open(PLAYER_STATS_ON_CHAMP_CSV_PATH, "r", newline="") as file:
             reader = csv.reader(file)
@@ -354,7 +357,7 @@ class CsvHandler:
                 kda_ratio = float(row[5])
                 average_gold_per_minute = float(row[6])
                 average_cs_per_minute = float(row[7])
-                player_stats_on_champ = Player_stats_on_champ(
+                player_stats_on_champ = PlayerStatsOnChamp(
                     player,
                     champion,
                     mastery,

@@ -1,14 +1,18 @@
+import csv
+import json
+import re
+from typing import Optional
+
+import requests
+import time
 from datetime import datetime
+
 from retry import retry
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-import time, json, requests
-import csv
-import re
-
 from tqdm import tqdm
 
 from classes import *
@@ -262,7 +266,7 @@ class Scrapper:
                 else MatchResult.RED
             )
 
-            matches.append(Opgg_match(red_team, blue_team, match_result))
+            matches.append(OpggMatch(red_team, blue_team, match_result))
 
         return matches
 
@@ -331,7 +335,7 @@ class Scrapper:
         #     for lane, pos in zip(Lane, page.find_elements(By.CLASS_NAME, "gauge"))
         # ]  # height: 5.56%;
 
-        return Player_info(
+        return PlayerInfo(
             player,
             overall_win_rate,
             rank,
@@ -343,8 +347,8 @@ class Scrapper:
             -1,
         )
 
-    @retry((Exception), tries=3, delay=RETRY_DELAY, backoff=0)
-    def get_champion_stats(self, champion: Champion, tier: Tier) -> list[Champ_stats]:
+    @retry(Exception, tries=3, delay=RETRY_DELAY, backoff=0)
+    def get_champion_stats(self, champion: Champion, tier: Tier) -> list[ChampStats]:
         counter_picks_class = "css-12a3bv1 ee0p1b91"
 
         # load page
@@ -412,7 +416,7 @@ class Scrapper:
                 counter_picks[counter_pick_champion] = counter_pick_win_ratio
 
             champion_stats.append(
-                Champ_stats(
+                ChampStats(
                     champion,
                     lane_name_to_enum[lane_name],
                     champion_tier,
@@ -493,7 +497,7 @@ class Scrapper:
         )
         mastery = int(re.search(r"Points: (\d+)", mastery_txt).group(1))
 
-        result = Player_stats_on_champ(
+        result = PlayerStatsOnChamp(
             player,
             champion_string,
             mastery,

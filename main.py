@@ -6,10 +6,10 @@ csv_handler = CsvHandler(scrapper)
 
 csv_handler.scrap_champ_stats_to_csv(Tier.GOLD)
 
-#scrapper.get_champion_stats(Champion.KAYN, Tier.GOLD)
-#scrapper.get_n_recent_matches(25, Player("DBicek", "EUNE"))
+# scrapper.get_champion_stats(Champion.KAYN, Tier.GOLD)
+# scrapper.get_n_recent_matches(25, Player("DBicek", "EUNE"))
 
-#csv_handler.scrap_players_and_their_matches_to_csv(200, 50, Tier.PLATINUM)
+# csv_handler.scrap_players_and_their_matches_to_csv(200, 50, Tier.PLATINUM)
 
 # scrapper.scrap_data_necessary_to_process_matches()
 # scrapper.scrap_player_stats_on_champ_to_csv(
