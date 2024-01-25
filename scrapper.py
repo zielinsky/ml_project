@@ -269,8 +269,7 @@ class Scrapper:
 
         return matches
 
-    @staticmethod
-    def get_n_players_with_tier(n: int, tier: Tier) -> list[Player]:
+    def get_n_players_with_tier(self, n: int, tier: Tier) -> list[Player]:
         def get_n_players_on_page(n: int, page: int) -> list[Player]:
             driver.get(
                 f"https://www.op.gg/leaderboards/tier?tier={tier.value}&page={page}"
@@ -304,8 +303,7 @@ class Scrapper:
         response = requests.get(api_url)
         return response.json()["championPoints"]
 
-    @staticmethod
-    def get_player_info(player: Player) -> PlayerInfo:
+    def get_player_info(self, player: Player) -> PlayerInfo:
         driver.get(
             f"https://www.leagueofgraphs.com/summoner/eune/{player.get_opgg_name()}#championsData-soloqueue"
         )
@@ -316,7 +314,7 @@ class Scrapper:
             == "complete",
             "Page taking too long to load",
         )
-
+        # try:
         wins = float(driver.find_element(By.CLASS_NAME, "winsNumber").text)
         losses = float(driver.find_element(By.CLASS_NAME, "lossesNumber").text)
 
@@ -346,6 +344,8 @@ class Scrapper:
             [],
             -1,
         )
+        # except Exception as e:
+        #     raise Exception(f"Failed to scrap player info for player: {player}")
 
     @retry(Exception, tries=3, delay=RETRY_DELAY, backoff=0)
     def get_champion_stats(self, champion: Champion, tier: Tier) -> list[ChampStats]:
@@ -430,9 +430,8 @@ class Scrapper:
         return champion_stats
 
     # sometimes the site blocks one player for n sec
-    @staticmethod
     def get_player_stats_on_specific_champion(
-        player: Player, champion: Champion
+        self, player: Player, champion: Champion
     ) -> PlayerStatsOnChamp:
         global driver
         global num_of_query
@@ -450,13 +449,13 @@ class Scrapper:
             "Page taking too long to load",
         )
 
-        # when player not found on league of graphs
-        try:
-            driver.find_element(By.CLASS_NAME, "solo-text")
-            return PlayerStatsOnChamp(player, champion_string, -1, -1, -1, -1, -1, -1)
-        except:
-            pass
-
+        # # when player not found on league of graphs
+        # try:
+        #     driver.find_element(By.CLASS_NAME, "solo-text")
+        #     return PlayerStatsOnChamp(player, champion_string, -1, -1, -1, -1, -1, -1)
+        # except:
+        #     pass
+        # try:
         stats_on_all_champions = driver.find_element(
             By.XPATH, "//div[@data-tab-id='championsData-soloqueue']"
         ).find_elements(By.TAG_NAME, "tr")[1:]
@@ -506,3 +505,7 @@ class Scrapper:
         )
 
         return result
+        # except Exception as e:
+        #     raise Exception(
+        #         f"Failed to scrap player {player} stats on champion {champion_string}"
+        #     )

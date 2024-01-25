@@ -1,3 +1,5 @@
+import logging
+
 from csv_handler import *
 from classes import *
 from statistics import mean
@@ -10,12 +12,26 @@ class DataVectorConverter:
     def get_data_necessary_to_process_matches(self, matches: list[OpggMatch]):
         def scrap_data_necessary_to_process_match(match: OpggMatch):
             match_records = match.team_blue + match.team_red
-            for player, champion, lane in tqdm(match_records):
-                self.csv_handler.scrap_player_info_to_csv(player)
-                self.csv_handler.scrap_player_stats_on_champ_to_csv(player, champion)
+            for player, champion, lane in match_records:
+                try:
+                    self.csv_handler.scrap_player_info_to_csv(player)
+                except Exception as e:
+                    raise Exception(f"Failed to scrap player infor for player {player}")
+                try:
+                    self.csv_handler.scrap_player_stats_on_champ_to_csv(
+                        player, champion
+                    )
+                except Exception as e:
+                    raise Exception(
+                        f"Failed to scrap player champion stats for player {player} for champion {champion}"
+                    )
 
         for match in tqdm(matches):
-            scrap_data_necessary_to_process_match(match)
+            try:
+                scrap_data_necessary_to_process_match(match)
+            except Exception as e:
+                logging.error(e)
+                continue
 
     def create_data_vector_based_on_matches(
         self, num_of_entries: Optional[int] = None
@@ -58,76 +74,95 @@ class DataVectorConverter:
         ) -> (list[DataEntryForPlayer], list[ChampionEntry], list[DataEntryTeam]):
             player_entries = []
             champion_entries = []
-            for idx, (player, champion, lane) in enumerate(team):
-                player_entries.append(
-                    get_entry_for_player(
-                        players_info[player],
-                        players_stats_on_champion[player][champion],
+            try:
+                for idx, (player, champion, lane) in enumerate(team):
+                    player_entries.append(
+                        get_entry_for_player(
+                            players_info[player],
+                            players_stats_on_champion[player][champion],
+                        )
                     )
+                    try:
+                        champion_entries.append(
+                            get_entry_for_champion(
+                                champions_stats[lane][champion],
+                                enemy_team[idx][1],
+                            )
+                        )
+                    except KeyError:
+                        champion_entries.append(ChampionEntry(5, 0.45, 0.0, 0.0, 0.45))
+
+                team_entry = DataEntryTeam(
+                    sum(
+                        [
+                            player_entry.player_mastery_on_champ
+                            for player_entry in player_entries
+                        ]
+                    ),
+                    mean(
+                        [
+                            player_entry.player_mastery_on_champ
+                            for player_entry in player_entries
+                        ]
+                    ),
+                    mean(
+                        [
+                            player_entry.player_overall_wr
+                            for player_entry in player_entries
+                        ]
+                    ),
+                    mean(
+                        [
+                            player_entry.player_wr_on_champ
+                            for player_entry in player_entries
+                        ]
+                    ),
+                    mean(
+                        [
+                            champion_entry.match_up_wr
+                            for champion_entry in champion_entries
+                        ]
+                    ),
                 )
-                champion_entries.append(
-                    get_entry_for_champion(
-                        champions_stats[lane][champion],
-                        enemy_team[idx][1],
-                    )
-                )
-            team_entry = DataEntryTeam(
-                sum(
-                    [
-                        player_entry.player_mastery_on_champ
-                        for player_entry in player_entries
-                    ]
-                ),
-                mean(
-                    [
-                        player_entry.player_mastery_on_champ
-                        for player_entry in player_entries
-                    ]
-                ),
-                mean(
-                    [player_entry.player_overall_wr for player_entry in player_entries]
-                ),
-                mean(
-                    [player_entry.player_wr_on_champ for player_entry in player_entries]
-                ),
-                mean(
-                    [champion_entry.match_up_wr for champion_entry in champion_entries]
-                ),
-            )
-            return player_entries, champion_entries, team_entry
+                return player_entries, champion_entries, team_entry
+            except KeyError as e:
+                logging.error(e)
+                raise Exception("Failed to create entry") from e
 
         data_vector_list = []
         for match in matches:
             blue_team = match.team_blue
             red_team = match.team_red
             match_result = match.winner
-
-            (
-                blue_team_players_entries,
-                blue_team_champions_entries,
-                blue_team_team_entry,
-            ) = calculate_vector_entries(
-                players_info, players_stats_on_champ, blue_team, red_team
-            )
-            (
-                red_team_players_entries,
-                red_team_champions_entries,
-                red_team_team_entry,
-            ) = calculate_vector_entries(
-                players_info, players_stats_on_champ, red_team, blue_team
-            )
-
-            data_vector_list.append(
-                DataVector(
-                    match_result,
+            try:
+                (
                     blue_team_players_entries,
                     blue_team_champions_entries,
                     blue_team_team_entry,
+                ) = calculate_vector_entries(
+                    players_info, players_stats_on_champ, blue_team, red_team
+                )
+                (
                     red_team_players_entries,
                     red_team_champions_entries,
                     red_team_team_entry,
+                ) = calculate_vector_entries(
+                    players_info, players_stats_on_champ, red_team, blue_team
                 )
-            )
+
+                data_vector_list.append(
+                    DataVector(
+                        match_result,
+                        blue_team_players_entries,
+                        blue_team_champions_entries,
+                        blue_team_team_entry,
+                        red_team_players_entries,
+                        red_team_champions_entries,
+                        red_team_team_entry,
+                    )
+                )
+            except Exception as e:
+                continue
 
         return data_vector_list
 

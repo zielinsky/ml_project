@@ -61,7 +61,7 @@ class CsvHandler:
 
             if not csv_exists:
                 writer.writerow(header)
-
+            # try:
             player_stats = self.scrapper.get_player_info(player)
             writer.writerow(
                 [
@@ -77,6 +77,8 @@ class CsvHandler:
                     player_stats.last_twenty_games_win_rate,
                 ]
             )
+            # except Exception as e:
+            #     raise e
 
     def scrap_n_player_matches_to_csv(self, player: Player, n: int):
         header = [
@@ -201,16 +203,17 @@ class CsvHandler:
             "average_gold_per_minute",
             "average_cs_per_minute",
         ]
-        player_stats_on_champ = self.scrapper.get_player_stats_on_specific_champion(
-            player, champion
-        )
+
         csv_exists = os.path.exists(PLAYER_STATS_ON_CHAMP_CSV_PATH)
         with open(PLAYER_STATS_ON_CHAMP_CSV_PATH, "a+", newline="") as file:
             writer = csv.writer(file)
 
             if not csv_exists:
                 writer.writerow(header)
-
+            # try:
+            player_stats_on_champ = self.scrapper.get_player_stats_on_specific_champion(
+                player, champion
+            )
             writer.writerow(
                 [
                     player_stats_on_champ.player,
@@ -223,6 +226,8 @@ class CsvHandler:
                     player_stats_on_champ.average_cs_per_minute,
                 ]
             )
+            # except Exception as e:
+            #     raise e
 
     def scrap_players_and_their_matches_to_csv(
         self, num_of_players: int, num_of_matches: int, tier: Tier
