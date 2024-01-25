@@ -25,7 +25,32 @@ CHROME_DRIVER = config["CHROME_DRIVER"]
 OP_GG_COOKIES = (By.CLASS_NAME, "css-47sehv")
 LEAGUE_OF_GRAPHS_COOKIES = (By.TAG_NAME, "mat-button")
 RETRY_DELAY = 5
+MAX_QUERY_IN_WEBDRIVER = 200
 # ========================== CONSTANTS ==========================
+
+
+# ============================ GLOBAL ===========================
+def _create_web_driver():
+    service = Service(executable_path=CHROME_DRIVER)
+    chrome_options = webdriver.ChromeOptions()
+    chrome_options.add_experimental_option(
+        "prefs",
+        {
+            "intl.accept_languages": "en,en_US",
+            "profile.managed_default_content_settings.images": 2,
+        },
+    )
+    # chrome_options.add_argument("--headless=new")
+    # chrome_options.add_experimental_option(
+    # "detach",
+    # True,
+    # )  # Browser stays opened after executing commands
+    return webdriver.Chrome(options=chrome_options, service=service)
+
+
+driver = _create_web_driver()
+num_of_query = 0
+# ============================ GLOBAL ===========================
 
 
 def remove_non_alpha_characters(s):
@@ -49,83 +74,63 @@ def classes_to_csv(list_of_classes, csv_name):
         dict_writer.writerows(list_of_classes)
 
 
-def decorate_all_functions(function_decorator):
+def decorate_all_functions(function_decorator, exclude: list[str] = None):
     def decorator(cls):
         for name, obj in vars(cls).items():
-            if callable(obj):
-                setattr(cls, name, function_decorator(cls, obj))
+            if callable(obj) and (
+                exclude is None or (exclude != None and name not in exclude)
+            ):
+                print(name)
+                setattr(cls, name, function_decorator(obj))
         return cls
 
     return decorator
 
 
-def refresh_driver(cls, func):
+def refresh_driver(func):
     @wraps(func)
     def wrapper(*args, **kw):
-        try:
-            res = func(*args, **kw)
-        finally:
-            cls.num_of_query += 1
-            if cls.num_of_query > 5:
-                if cls.driver is not None:
-                    cls.driver.quit()
-
-                service = Service(executable_path=CHROME_DRIVER)
-                chrome_options = webdriver.ChromeOptions()
-                chrome_options.add_experimental_option(
-                    "prefs",
-                    {
-                        "intl.accept_languages": "en,en_US",
-                        "profile.managed_default_content_settings.images": 2,
-                    },
-                )
-                cls.driver = webdriver.Chrome(options=chrome_options, service=service)
-                cls.num_of_query = 0
-        return res
+        global num_of_query
+        global driver
+        num_of_query += 1
+        if num_of_query > MAX_QUERY_IN_WEBDRIVER:
+            driver.quit()
+            driver = _create_web_driver()
+            num_of_query = 0
+        return func(*args, **kw)
 
     return wrapper
 
 
-@decorate_all_functions(refresh_driver)
+@decorate_all_functions(
+    refresh_driver,
+    [
+        "__init__",
+        "_create_web_driver",
+        "accept_op_gg_cookies",
+        "accept_log_cookies",
+        "get_only_solo_duo_games",
+        "get_player_puuid",
+        "get_player_mastery_at_champion",
+    ],
+)
 class Scrapper:
+    global driver
     num_of_query = 0
-    driver = None
-
-    def _create_web_driver(self):
-        if self.driver is not None:
-            self.driver.exit()
-
-        service = Service(executable_path=CHROME_DRIVER)
-        chrome_options = webdriver.ChromeOptions()
-        chrome_options.add_experimental_option(
-            "prefs",
-            {
-                "intl.accept_languages": "en,en_US",
-                "profile.managed_default_content_settings.images": 2,
-            },
-        )
-        # chrome_options.add_argument("--headless=new")
-        # chrome_options.add_experimental_option(
-        #     "detach",
-        #     True,
-        # )  # Browser stays opened after executing commands
-        self.driver = webdriver.Chrome(options=chrome_options, service=service)
 
     def __init__(self, webdriver_path: str):
         self.op_gg_cookies_accepted = False
         self.log_cookies_accepted = False
         self.webdriver_path = webdriver_path
 
-        self._create_web_driver()
-
     def accept_op_gg_cookies(self):
         if not self.op_gg_cookies_accepted:
             try:
-                WebDriverWait(self.driver, 3).until(
+                WebDriverWait(driver, 3).until(
                     EC.presence_of_element_located(OP_GG_COOKIES)
                 )
 
-                cookies = self.driver.find_element(*OP_GG_COOKIES)
+                cookies = driver.find_element(*OP_GG_COOKIES)
                 cookies.click()
                 self.op_gg_cookies_accepted = True
             except:
@@ -134,11 +139,11 @@ class Scrapper:
     def accept_log_cookies(self):
         if not self.log_cookies_accepted:
             try:
-                WebDriverWait(self.driver, 3).until(
+                WebDriverWait(driver, 3).until(
                     EC.presence_of_element_located(LEAGUE_OF_GRAPHS_COOKIES)
                 )
 
-                cookies = self.driver.find_element(*LEAGUE_OF_GRAPHS_COOKIES)
+                cookies = driver.find_element(*LEAGUE_OF_GRAPHS_COOKIES)
                 cookies.click()
                 self.log_cookies_accepted = True
             except:
@@ -146,7 +151,7 @@ class Scrapper:
 
     def get_only_solo_duo_games(self):
         # start switching to solo duo tab
-        ranked_game_type = self.driver.find_element(
+        ranked_game_type = driver.find_element(
             By.XPATH, '//button[@value="SOLORANKED"]'
         )
         ranked_game_type.click()
@@ -157,7 +162,7 @@ class Scrapper:
             try:
                 if_solo_duo_in_games = [
                     "Ranked Solo" in i.text or i.text == "TFT.OP.GG"
-                    for i in self.driver.find_elements(By.CLASS_NAME, "game-type")
+                    for i in driver.find_elements(By.CLASS_NAME, "e1gknzrf0")
                 ]
                 # print(sum([1 if 'Ranked Solo' in text else 0 for text in list_of_games]), " ", len(list_of_games))
                 if False not in if_solo_duo_in_games:
@@ -167,18 +172,18 @@ class Scrapper:
 
     @retry((Exception), tries=3, delay=RETRY_DELAY, backoff=0)
     def get_n_recent_matches(self, n: int, player: Player) -> list[Opgg_match]:
-        self.driver.get(f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}")
+        driver.get(f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}")
         self.accept_op_gg_cookies()
         self.get_only_solo_duo_games()
 
         # Show more matches if n > 20
         try:
             for _ in range(0, (n - 1) // 20):
-                show_more_button = self.driver.find_element(
+                show_more_button = driver.find_element(
                     By.XPATH, '//button[@class="more"]'
                 )
                 show_more_button.click()
-                WebDriverWait(self.driver, 5).until(
+                WebDriverWait(driver, 3).until(
                     EC.text_to_be_present_in_element(
                         (By.XPATH, '//button[@class="more"]'), "Show More"
                     )
@@ -187,9 +192,9 @@ class Scrapper:
             pass
 
         # Get matches divs
-        matches_div = self.driver.find_elements(
+        matches_div = driver.find_elements(
             By.CLASS_NAME,
-            "e4p6qc61",
+            "e4p6qc60",
         )
 
         matches = []
@@ -261,13 +266,11 @@ class Scrapper:
 
     def get_n_players_with_tier(self, n: int, tier: Tier) -> list[Player]:
         def get_n_players_on_page(n: int, page: int) -> list[Player]:
-            self.driver.get(
+            driver.get(
                 f"https://www.op.gg/leaderboards/tier?tier={tier.value}&page={page}"
             )
 
-            players_a = self.driver.find_elements(
-                By.XPATH, '//a[@class="summoner-link"]'
-            )
+            players_a = driver.find_elements(By.XPATH, '//a[@class="summoner-link"]')
             players = [
                 player_a.get_attribute("href").split("/")[5]
                 for player_a in players_a[:n]
@@ -295,7 +298,7 @@ class Scrapper:
         return response.json()["championPoints"]
 
     def get_player_info(self, player: Player) -> Player_info:
-        self.driver.get(f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}")
+        driver.get(f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}")
         # accept cookies
         self.accept_op_gg_cookies()
 
@@ -304,7 +307,7 @@ class Scrapper:
         except:
             return self.get_player_info(player)
 
-        page = self.driver.find_element(By.ID, "__next")
+        page = driver.find_element(By.ID, "__next")
 
         def find_on_page(name):
             return page.find_element(By.CLASS_NAME, name)
@@ -366,14 +369,14 @@ class Scrapper:
         counter_picks_class = "css-12a3bv1 ee0p1b91"
 
         # load page
-        self.driver.get(
+        driver.get(
             f"https://www.op.gg/champions/{champion_enum_to_name[champion]}/counters/?tier={tier.value}"
         )
 
         # accept cookies
         self.accept_op_gg_cookies()
 
-        lane_elements = self.driver.find_elements(
+        lane_elements = driver.find_elements(
             By.XPATH, '//div[@data-key="FILTER-POSITION"]'
         )
 
@@ -396,7 +399,7 @@ class Scrapper:
 
             #print(self.driver.find_element(By.CLASS_NAME, "tier-icon").find_element(By.TAG_NAME, "img").get_attribute("alt"))
             champion_tier = champion_tier_name_to_enum[
-                self.driver.find_element(By.CLASS_NAME, "tier-icon").find_element(By.TAG_NAME, "img").get_attribute("alt").upper() + " Tier"
+                driver.find_element(By.CLASS_NAME, "tier-info").text
             ]
 
             win_ban_pick_elems = lane_elem.find_elements(
@@ -410,7 +413,7 @@ class Scrapper:
 
             # sort by win_rate?
             counter_picks = {}
-            counter_picks_trs = self.driver.find_elements(
+            counter_picks_trs = driver.find_elements(
                 By.XPATH, '//tr[@class="' + counter_picks_class + '"]'
             )
 
@@ -444,22 +447,22 @@ class Scrapper:
     def get_player_stats_on_specific_champion(
         self, player: Player, champion: Champion
     ) -> Player_stats_on_champ:
-        self.driver.get(
+        driver.get(
             f"https://www.leagueofgraphs.com/summoner/champions/eune/{player.get_opgg_name()}#championsData-soloqueue"
         )
 
         champion_string = champion_enum_to_name[champion]
 
         # Wait until page are loaded
-        WebDriverWait(self.driver, 5).until(
-            lambda wd: self.driver.execute_script("return document.readyState")
+        WebDriverWait(driver, 5).until(
+            lambda wd: driver.execute_script("return document.readyState")
             == "complete",
             "Page taking too long to load",
         )
 
-        # self.driver.get_screenshot_as_file("SSBITCH.jpg")
+        # driver.get_screenshot_as_file("SSBITCH.jpg")
 
-        stats_on_all_champions = self.driver.find_element(
+        stats_on_all_champions = driver.find_element(
             By.XPATH, "//div[@data-tab-id='championsData-soloqueue']"
         ).find_elements(By.TAG_NAME, "tr")[1:]
 
@@ -520,7 +523,8 @@ players_queue = queue.Queue()
 while not players_queue.empty():
     player = players_queue.get()
     try:
-        print(scrapper.get_player_stats_on_specific_champion(player, Champion.TEEMO))
+        # print(scrapper.get_player_stats_on_specific_champion(player, Champion.TEEMO))
+        print(scrapper.get_n_recent_matches(10, player))
 
     except:
         players_queue.put(player)
