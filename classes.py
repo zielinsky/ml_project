@@ -152,10 +152,10 @@ class ChampionEntry:
 
 @dataclass
 class DataVector:
+    match_result: MatchResult
     blue_team_players_entries: list[DataEntryForPlayer]
     blue_team_champions_entries: list[ChampionEntry]
     blue_team_team_entry: DataEntryTeam
     red_team_players_entries: list[DataEntryForPlayer]
     red_team_champions_entries: list[ChampionEntry]
     red_team_team_entry: DataEntryTeam
-    match_result: MatchResult

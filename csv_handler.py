@@ -1,3 +1,5 @@
+from typing import Optional
+
 from scrapper import Scrapper
 from classes import *
 import os.path
@@ -21,6 +23,7 @@ CHAMPION_STATS_CSVS_PATHS = [
     "data/champStats/Adc.csv",
     "data/champStats/Support.csv",
 ]
+DATA_VECTOR_CSV_PATH = "data/data_vector.csv"
 
 # ========================== CONSTANTS ==========================
 
@@ -230,7 +233,7 @@ class CsvHandler:
             self.scrap_n_player_matches_to_csv(player, num_of_matches)
 
     @staticmethod
-    def get_matches_from_csv() -> list[OpggMatch]:
+    def get_matches_from_csv(num_of_matches: Optional[int] = None) -> list[OpggMatch]:
         matches = []
         with open(MATCHES_CSV_PATH, "r", newline="") as file:
             reader = csv.reader(file)
@@ -238,7 +241,10 @@ class CsvHandler:
             # skip header
             next(reader, None)
 
-            for row in reader:
+            for idx, row in enumerate(reader):
+                if num_of_matches is not None:
+                    if idx == num_of_matches:
+                        break
                 match_result = eval(row[1])
                 team_red = [
                     eval(replace_all_enum_occurrences(player)) for player in row[2:7]

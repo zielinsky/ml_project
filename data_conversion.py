@@ -3,11 +3,11 @@ from classes import *
 from statistics import mean
 
 
-class DataVector:
+class DataVectorConverter:
     def __init__(self, csv_handler: CsvHandler) -> None:
         self.csv_handler = csv_handler
 
-    def get_data_necessary_to_process_matches(self):
+    def get_data_necessary_to_process_matches(self, matches: list[Opgg_match]):
         # Przydałoby się sprawdzać czy nie robimy jakiś duplikatów graczy oraz tupli (Player, Champion)
         def scrap_data_necessary_to_process_match(match: OpggMatch):
             match_records = match.team_blue + match.team_red
@@ -19,9 +19,11 @@ class DataVector:
         for match in tqdm(matches):
             scrap_data_necessary_to_process_match(match)
 
-    def create_data_vector_based_on_matches(self):
-        matches = self.csv_handler.get_matches_from_csv()
-        self.get_data_necessary_to_process_matches()
+    def create_data_vector_based_on_matches(
+        self, num_of_entries: Optional[int] = None
+    ) -> list[DataVector]:
+        matches = self.csv_handler.get_matches_from_csv(num_of_entries)
+        self.get_data_necessary_to_process_matches(matches)
         players_info = self.csv_handler.get_players_info_from_csv()
         players_stats_on_champ = self.csv_handler.get_players_stats_on_champ_from_csv()
         champions_stats = self.csv_handler.get_champ_stats_from_csv()
@@ -58,7 +60,7 @@ class DataVector:
         ) -> (list[DataEntryForPlayer], list[ChampionEntry], list[DataEntryTeam]):
             player_entries = []
             champion_entries = []
-            for idx, player, champion, lane in enumerate(team):
+            for idx, (player, champion, lane) in enumerate(team):
                 player_entries.append(
                     get_entry_for_player(
                         players_info[player],
@@ -96,12 +98,11 @@ class DataVector:
             )
             return player_entries, champion_entries, team_entry
 
-        data_vector = []
+        data_vector_list = []
         for match in matches:
             blue_team = match.team_blue
             red_team = match.team_red
             match_result = match.winner
-            match_row = []
 
             (
                 blue_team_players_entries,
@@ -118,16 +119,96 @@ class DataVector:
                 players_info, players_stats_on_champ, red_team, blue_team
             )
 
-            match_row.append(
+            data_vector_list.append(
                 DataVector(
+                    match_result,
                     blue_team_players_entries,
                     blue_team_champions_entries,
                     blue_team_team_entry,
                     red_team_players_entries,
                     red_team_champions_entries,
                     red_team_team_entry,
-                    match_result,
                 )
             )
 
-            data_vector.append(match_row)
+        return data_vector_list
+
+    @staticmethod
+    def save_data_vectors_to_csv(data_vector_list: list[DataVector]) -> None:
+        def flatten(xss: list[list[str]]) -> list[str]:
+            return [x for xs in xss for x in xs]
+
+        def get_header_entries() -> list[str]:
+            def get_entry_header(
+                team_name: str, player_num: str, entry_suffixes: list[str]
+            ) -> list[str]:
+                prefix = team_name + "_player_" + player_num + "_"
+                entry_header = [prefix + suffix for suffix in entry_suffixes]
+                return entry_header
+
+            player_suffixes = [
+                "mastery_on_champ",
+                "wr_on_champ",
+                "kda_ratio_on_champ",
+                "gpm_on_champ",
+                "cspm_on_champ",
+                "overall_wr",
+            ]
+            champion_suffixes = [
+                "tier",
+                "wr",
+                "br",
+                "pr",
+                "match_up_wr",
+            ]
+            team_suffixes = [
+                "total_mastery",
+                "average_mastery",
+                "average_player_wr",
+                "average_champion_specific_player_wr",
+                "average_champion_specific_match_up_wr",
+            ]
+
+            header = []
+            for team_name in ["blue_team", "red_team"]:
+                for player_num in ["1", "2", "3", "4", "5"]:
+                    header.append(
+                        get_entry_header(team_name, player_num, player_suffixes)
+                    )
+                for player_num in ["1", "2", "3", "4", "5"]:
+                    header.append(
+                        get_entry_header(team_name, player_num, champion_suffixes)
+                    )
+                header.append(get_entry_header(team_name, player_num, team_suffixes))
+            return flatten(header)
+
+        def append_entry_list_values(
+            row: list[any],
+            entry: list[DataEntryForPlayer] | list[ChampionEntry],
+        ) -> None:
+            for x in entry:
+                for k, v in asdict(x).items():
+                    row.append(v)
+
+        def append_single_entry(row: list[any], entry: DataEntryTeam):
+            for k, v in asdict(entry).items():
+                row.append(v)
+
+        header = ["match_result"]
+        header.extend(get_header_entries())
+
+        csv_exists = os.path.exists(DATA_VECTOR_CSV_PATH)
+        with open(DATA_VECTOR_CSV_PATH, "a+", newline="") as file:
+            writer = csv.writer(file)
+
+            if not csv_exists:
+                writer.writerow(header)
+            for data_vector in data_vector_list:
+                row = [data_vector.match_result.name]
+                append_entry_list_values(row, data_vector.blue_team_players_entries)
+                append_entry_list_values(row, data_vector.blue_team_champions_entries)
+                append_single_entry(row, data_vector.blue_team_team_entry)
+                append_entry_list_values(row, data_vector.red_team_players_entries)
+                append_entry_list_values(row, data_vector.red_team_champions_entries)
+                append_single_entry(row, data_vector.red_team_team_entry)
+                writer.writerow(row)
