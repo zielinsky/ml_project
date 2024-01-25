@@ -2,6 +2,7 @@ import queue
 from datetime import datetime
 from retry import retry
 from selenium import webdriver
+from selenium.common import NoSuchElementException
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -25,7 +26,7 @@ CHROME_DRIVER = config["CHROME_DRIVER"]
 OP_GG_COOKIES = (By.CLASS_NAME, "css-47sehv")
 LEAGUE_OF_GRAPHS_COOKIES = (By.TAG_NAME, "mat-button")
 RETRY_DELAY = 5
-MAX_QUERY_IN_WEBDRIVER = 200
+MAX_QUERY_IN_WEBDRIVER = 100
 # ========================== CONSTANTS ==========================
 
 
@@ -40,6 +41,13 @@ def _create_web_driver():
             "profile.managed_default_content_settings.images": 2,
         },
     )
+    # user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36"
+    # chrome_options.add_argument(f"user-agent={user_agent}")
+    # chrome_options.add_argument("--no-sandbox")
+    # chrome_options.add_argument("--window-size=1920,1080")
+    # chrome_options.add_argument("--disable-gpu")
+    # chrome_options.add_argument("--allow-running-insecure-content")
+    # chrome_options.add_argument("--headless=new")
     # chrome_options.add_argument("--headless=new")
     # chrome_options.add_experimental_option(
     # "detach",
@@ -80,7 +88,6 @@ def decorate_all_functions(function_decorator, exclude: list[str] = None):
             if callable(obj) and (
                 exclude is None or (exclude != None and name not in exclude)
             ):
-                print(name)
                 setattr(cls, name, function_decorator(obj))
         return cls
 
@@ -447,6 +454,9 @@ class Scrapper:
     def get_player_stats_on_specific_champion(
         self, player: Player, champion: Champion
     ) -> Player_stats_on_champ:
+        global driver
+        global num_of_query
+
         driver.get(
             f"https://www.leagueofgraphs.com/summoner/champions/eune/{player.get_opgg_name()}#championsData-soloqueue"
         )
@@ -459,8 +469,6 @@ class Scrapper:
             == "complete",
             "Page taking too long to load",
         )
-
-        # driver.get_screenshot_as_file("SSBITCH.jpg")
 
         stats_on_all_champions = driver.find_element(
             By.XPATH, "//div[@data-tab-id='championsData-soloqueue']"
@@ -516,15 +524,16 @@ class Scrapper:
 
 scrapper = Scrapper(CHROME_DRIVER)
 
-players = scrapper.get_n_players_with_tier(100, Tier.PLATINUM)
-players_queue = queue.Queue()
-[players_queue.put(i) for i in players]
+players = scrapper.get_n_players_with_tier(400, Tier.PLATINUM)
+# players_queue = queue.Queue()
+# [players_queue.put(i) for i in players]
+#
+# while not players_queue.empty():
+#     player = players_queue.get()
+#     try:
+#         print(scrapper.get_player_stats_on_specific_champion(player, Champion.AKALI))
+#     except:
+#         players_queue.put(player)
 
-while not players_queue.empty():
-    player = players_queue.get()
-    try:
-        # print(scrapper.get_player_stats_on_specific_champion(player, Champion.TEEMO))
-        print(scrapper.get_n_recent_matches(10, player))
-
-    except:
-        players_queue.put(player)
+for player in players:
+    print(scrapper.get_player_stats_on_specific_champion(player, Champion.AKALI))
