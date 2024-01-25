@@ -1,5 +1,4 @@
 from datetime import datetime
-
 from retry import retry
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -7,10 +6,13 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time, json, requests
-from tqdm import tqdm
 import csv
 import re
+
+from tqdm import tqdm
+
 from classes import *
+from functools import wraps
 
 # =========================== CONFIGS ===========================
 with open("config.json") as json_file:
@@ -22,9 +24,37 @@ CHROME_DRIVER = config["CHROME_DRIVER"]
 
 
 # ========================== CONSTANTS ==========================
-
-RETRY_DELAY = 3
+OP_GG_COOKIES = (By.CLASS_NAME, "css-47sehv")
+LEAGUE_OF_GRAPHS_COOKIES = (By.TAG_NAME, "mat-button")
+RETRY_DELAY = 5
+MAX_QUERY_IN_WEBDRIVER = 100
 # ========================== CONSTANTS ==========================
+
+
+# ============================ GLOBAL ===========================
+def _create_web_driver():
+    service = Service(executable_path=CHROME_DRIVER)
+    chrome_options = webdriver.ChromeOptions()
+    chrome_options.add_experimental_option(
+        "prefs",
+        {
+            "intl.accept_languages": "en,en_US",
+            "profile.managed_default_content_settings.images": 2,
+        },
+    )
+    user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36"
+    chrome_options.add_argument(f"user-agent={user_agent}")
+    chrome_options.add_argument("--headless=new")
+    # chrome_options.add_experimental_option(
+    # "detach",
+    # True,
+    # )  # Browser stays opened after executing commands
+    return webdriver.Chrome(options=chrome_options, service=service)
+
+
+driver = _create_web_driver()
+num_of_query = 0
+# ============================ GLOBAL ===========================
 
 
 def remove_non_alpha_characters(s):
@@ -48,40 +78,82 @@ def classes_to_csv(list_of_classes, csv_name):
         dict_writer.writerows(list_of_classes)
 
 
+def decorate_all_functions(function_decorator, exclude: list[str] = None):
+    def decorator(cls):
+        for name, obj in vars(cls).items():
+            if callable(obj) and (
+                exclude is None or (exclude != None and name not in exclude)
+            ):
+                setattr(cls, name, function_decorator(obj))
+        return cls
+
+    return decorator
+
+
+def refresh_driver(func):
+    @wraps(func)
+    def wrapper(*args, **kw):
+        global num_of_query
+        global driver
+        num_of_query += 1
+        if num_of_query > MAX_QUERY_IN_WEBDRIVER:
+            driver.quit()
+            driver = _create_web_driver()
+            num_of_query = 0
+        return func(*args, **kw)
+
+    return wrapper
+
+
+@decorate_all_functions(
+    refresh_driver,
+    [
+        "__init__",
+        "_create_web_driver",
+        "accept_op_gg_cookies",
+        "accept_log_cookies",
+        "get_only_solo_duo_games",
+        "get_player_puuid",
+        "get_player_mastery_at_champion",
+    ],
+)
 class Scrapper:
-    def __init__(self, webdriver_path: str):
-        service = Service(executable_path=webdriver_path)
-        chrome_options = webdriver.ChromeOptions()
-        chrome_options.add_experimental_option(
-            "prefs", {
-                "intl.accept_languages": "en,en_US",
-                # block image loading
-                "profile.managed_default_content_settings.images": 2
-            },
+    global driver
+    num_of_query = 0
 
-        )
-        chrome_options.add_argument("--headless=new")
-        # chrome_options.add_experimental_option(
-        #    "detach", True
-        # )  # Browser stays opened after executing commands
-
-        self.driver = webdriver.Chrome(service=service, options=chrome_options)
-        # self.driver.maximize_window()
+    def __init__(self):
+        self.op_gg_cookies_accepted = False
+        self.log_cookies_accepted = False
 
     def accept_op_gg_cookies(self):
-        try:
-            WebDriverWait(self.driver, 3).until(
-                EC.presence_of_element_located((By.CLASS_NAME, "css-47sehv"))
-            )
+        if not self.op_gg_cookies_accepted:
+            try:
+                WebDriverWait(driver, 3).until(
+                    EC.presence_of_element_located(OP_GG_COOKIES)
+                )
 
-            cookies = self.driver.find_element(By.CLASS_NAME, "css-47sehv")
-            cookies.click()
-        except:
-            pass
+                cookies = driver.find_element(*OP_GG_COOKIES)
+                cookies.click()
+                self.op_gg_cookies_accepted = True
+            except:
+                pass
+
+    def accept_log_cookies(self):
+        if not self.log_cookies_accepted:
+            try:
+                WebDriverWait(driver, 3).until(
+                    EC.presence_of_element_located(LEAGUE_OF_GRAPHS_COOKIES)
+                )
+
+                cookies = driver.find_element(*LEAGUE_OF_GRAPHS_COOKIES)
+                cookies.click()
+                self.log_cookies_accepted = True
+            except:
+                pass
 
     def get_only_solo_duo_games(self):
         # start switching to solo duo tab
-        ranked_game_type = self.driver.find_element(
+        ranked_game_type = driver.find_element(
             By.XPATH, '//button[@value="SOLORANKED"]'
         )
         ranked_game_type.click()
@@ -92,7 +164,7 @@ class Scrapper:
             try:
                 if_solo_duo_in_games = [
                     "Ranked Solo" in i.text or i.text == "TFT.OP.GG"
-                    for i in self.driver.find_elements(By.CLASS_NAME, "game-type")
+                    for i in driver.find_elements(By.CLASS_NAME, "game-type")
                 ]
                 # print(sum([1 if 'Ranked Solo' in text else 0 for text in list_of_games]), " ", len(list_of_games))
                 if False not in if_solo_duo_in_games:
@@ -102,26 +174,27 @@ class Scrapper:
 
     @retry((Exception), tries=3, delay=RETRY_DELAY, backoff=0)
     def get_n_recent_matches(self, n: int, player: Player) -> list[Opgg_match]:
-        self.driver.get(f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}")
+        driver.get(f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}")
         self.accept_op_gg_cookies()
         self.get_only_solo_duo_games()
 
         # Show more matches if n > 20
         try:
             for _ in range(0, (n - 1) // 20):
-                show_more_button = self.driver.find_element(
+                show_more_button = driver.find_element(
                     By.XPATH, '//button[@class="more"]'
                 )
                 show_more_button.click()
-                WebDriverWait(self.driver, 5).until(
+                WebDriverWait(driver, 3).until(
                     EC.text_to_be_present_in_element(
                         (By.XPATH, '//button[@class="more"]'), "Show More"
                     )
                 )
         except:
             pass
+
         # Get matches divs
-        matches_div = self.driver.find_elements(
+        matches_div = driver.find_elements(
             By.CLASS_NAME,
             "e4p6qc61",
         )
@@ -195,13 +268,11 @@ class Scrapper:
 
     def get_n_players_with_tier(self, n: int, tier: Tier) -> list[Player]:
         def get_n_players_on_page(n: int, page: int) -> list[Player]:
-            self.driver.get(
+            driver.get(
                 f"https://www.op.gg/leaderboards/tier?tier={tier.value}&page={page}"
             )
 
-            players_a = self.driver.find_elements(
-                By.XPATH, '//a[@class="summoner-link"]'
-            )
+            players_a = driver.find_elements(By.XPATH, '//a[@class="summoner-link"]')
             players = [
                 player_a.get_attribute("href").split("/")[5]
                 for player_a in players_a[:n]
@@ -217,7 +288,8 @@ class Scrapper:
 
         return players
 
-    def get_player_puuid(self, player: Player) -> str:
+    @staticmethod
+    def get_player_puuid(player: Player) -> str:
         api_url = f"https://europe.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{player.name}/{player.tag}?api_key={RIOT_API_KEY}"
         response = requests.get(api_url)
         return response.json()["puuid"]
@@ -228,60 +300,36 @@ class Scrapper:
         response = requests.get(api_url)
         return response.json()["championPoints"]
 
-    def get_player_info(self, player: Player) -> Player_info:
-        self.driver.get(f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}")
-        # accept cookies
-        self.accept_op_gg_cookies()
+    @staticmethod
+    def get_player_info(player: Player) -> Player_info:
+        driver.get(
+            f"https://www.leagueofgraphs.com/summoner/eune/{player.get_opgg_name()}#championsData-soloqueue"
+        )
 
-        try:
-            self.get_only_solo_duo_games()
-        except:
-            return self.get_player_info(player)
+        # Wait until page are loaded
+        WebDriverWait(driver, 2).until(
+            lambda wd: driver.execute_script("return document.readyState")
+            == "complete",
+            "Page taking too long to load",
+        )
 
-        page = self.driver.find_element(By.ID, "__next")
+        wins = float(driver.find_element(By.CLASS_NAME, "winsNumber").text)
+        losses = float(driver.find_element(By.CLASS_NAME, "lossesNumber").text)
 
-        def find_on_page(name):
-            return page.find_element(By.CLASS_NAME, name)
+        overall_win_rate = wins / losses  # Win Rate 17%
 
-        try:
-            find_on_page("win-lose-container")
-        except:
-            # TODO We need to skip matches that have any unranked players
-            return Player_info(
-                player, None, None, None, None, None, None, None, None
-            )  # unranked player
+        rank = driver.find_element(By.CLASS_NAME, "leagueTier").text
 
-        chars_to_strip = "QWERTYUIOPASDFGHJKLZXCVBNM qwertyuiopasdfghjklzxcvbnm,%:/;"
+        total_games_played = int(wins + losses)
 
-        overall_win_rate = (
-            float(find_on_page("ratio").text.strip(chars_to_strip)) / 100
-        )  # Win Rate 17%
+        level = int(
+            driver.find_element(By.CLASS_NAME, "bannerSubtitle").text.split(" ")[1]
+        )
 
-        rank = find_on_page("tier").text  # Gold 4
-
-        temp = (
-            find_on_page("win-lose").text.replace("W", "").replace("L", "").split(" ")
-        )  # 15W 17L
-        total_games_played = int(temp[0]) + int(temp[1])
-
-        level = int(find_on_page("level").text)  # 573
-
-        last_twenty_games_kda_ratio = float(
-            find_on_page("stats-box").find_element(By.CLASS_NAME, "ratio").text[:-2]
-        )  # 2.14:1
-
-        last_twenty_games_kill_participation = (
-            float(find_on_page("kill-participantion").text.strip(chars_to_strip)) / 100
-        )  # P/Kill 43%
-
-        preferred_positions = [
-            (lane, float(pos.get_attribute("style").strip(chars_to_strip)) / 100)
-            for lane, pos in zip(Lane, page.find_elements(By.CLASS_NAME, "gauge"))
-        ]  # height: 5.56%;
-
-        last_twenty_games_win_rate = (
-            float(find_on_page("chart").text.strip(chars_to_strip)) / 100
-        )  # 12%
+        # preferred_positions = [
+        #     (lane, float(pos.get_attribute("style").strip(chars_to_strip)) / 100)
+        #     for lane, pos in zip(Lane, page.find_elements(By.CLASS_NAME, "gauge"))
+        # ]  # height: 5.56%;
 
         return Player_info(
             player,
@@ -289,10 +337,10 @@ class Scrapper:
             rank,
             total_games_played,
             level,
-            last_twenty_games_kda_ratio,
-            last_twenty_games_kill_participation,
-            preferred_positions,
-            last_twenty_games_win_rate,
+            -1,
+            -1,
+            [],
+            -1,
         )
 
     @retry((Exception), tries=3, delay=RETRY_DELAY, backoff=0)
@@ -300,14 +348,14 @@ class Scrapper:
         counter_picks_class = "css-12a3bv1 ee0p1b91"
 
         # load page
-        self.driver.get(
+        driver.get(
             f"https://www.op.gg/champions/{champion_enum_to_name[champion]}/counters/?tier={tier.value}"
         )
 
         # accept cookies
         self.accept_op_gg_cookies()
 
-        lane_elements = self.driver.find_elements(
+        lane_elements = driver.find_elements(
             By.XPATH, '//div[@data-key="FILTER-POSITION"]'
         )
 
@@ -317,20 +365,24 @@ class Scrapper:
         for lane_elem in lane_elements:
             lane_name = lane_elem.get_attribute("data-value")
             if lane_elem != lane_elements[0]:
-                old_lane_flag = new_lane_flag = self.driver.find_element(By.CLASS_NAME, "ee92tbj0").text.split('.')[0]
+                old_lane_flag = new_lane_flag = self.driver.find_element(
+                    By.CLASS_NAME, "ee92tbj0"
+                ).text.split(".")[0]
                 lane_a = lane_elem.find_element(By.TAG_NAME, "a")
                 lane_a.click()
 
                 start_time = time.time()
                 while time.time() - start_time < 15 and old_lane_flag == new_lane_flag:
                     try:
-                        new_lane_flag = self.driver.find_element(By.CLASS_NAME, "ee92tbj0").text.split('.')[0]
+                        new_lane_flag = self.driver.find_element(
+                            By.CLASS_NAME, "ee92tbj0"
+                        ).text.split(".")[0]
                     except:
                         pass
 
-            #print(self.driver.find_element(By.CLASS_NAME, "tier-icon").find_element(By.TAG_NAME, "img").get_attribute("alt"))
+            # print(self.driver.find_element(By.CLASS_NAME, "tier-icon").find_element(By.TAG_NAME, "img").get_attribute("alt"))
             champion_tier = champion_tier_name_to_enum[
-                self.driver.find_element(By.CLASS_NAME, "tier-icon").find_element(By.TAG_NAME, "img").get_attribute("alt").upper() + " Tier"
+                driver.find_element(By.CLASS_NAME, "tier-info").text
             ]
 
             win_ban_pick_elems = lane_elem.find_elements(
@@ -344,7 +396,7 @@ class Scrapper:
 
             # sort by win_rate?
             counter_picks = {}
-            counter_picks_trs = self.driver.find_elements(
+            counter_picks_trs = driver.find_elements(
                 By.XPATH, '//tr[@class="' + counter_picks_class + '"]'
             )
 
@@ -373,210 +425,73 @@ class Scrapper:
 
         return champion_stats
 
-    # Dane ze splita 2 season 2023
-    def get_player_stats_on_champions(
-        self, player: Player
-    ) -> list[Player_stats_on_champ]:
-        self.driver.get(
-            f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}/champions"
-        )
-        self.accept_op_gg_cookies()
-
-        # Wait until Season button is clickable
-        WebDriverWait(self.driver, 5).until(
-            EC.presence_of_element_located(
-                (
-                    By.XPATH,
-                    '//*[@id="content-container"]/div/div/div[1]/div[2]/div/button',
-                )
-            )
-        )
-        season_choice_button = self.driver.find_element(
-            By.XPATH, '//*[@id="content-container"]/div/div/div[1]/div[2]/div/button'
-        )
-        season_choice_button.click()
-
-        # Wait until Season 2023 S2 button is clickable
-        WebDriverWait(self.driver, 5).until(
-            EC.presence_of_element_located(
-                (
-                    By.XPATH,
-                    '//*[@id="content-container"]/div/div/div[1]/div[2]/div/div/button[2]',
-                )
-            )
-        )
-        season2023_split2_button = self.driver.find_element(
-            By.XPATH,
-            '//*[@id="content-container"]/div/div/div[1]/div[2]/div/div/button[2]',
-        )
-        season2023_split2_button.click()
-
-        # Wait until Ranked Solo button is clickable
-        WebDriverWait(self.driver, 5).until(
-            EC.presence_of_element_located(
-                (By.XPATH, '//*[@id="content-container"]/div/div/div[2]/button[2]')
-            )
-        )
-        ranked_solo_games_button = self.driver.find_element(
-            By.XPATH, '//*[@id="content-container"]/div/div/div[2]/button[2]'
-        )
-        ranked_solo_games_button.click()
-
-        # Wait until stats are loaded
-        WebDriverWait(self.driver, 5).until(
-            EC.presence_of_element_located(
-                (By.XPATH, '//*[@id="content-container"]/div/table/colgroup')
-            )
-        )
-
-        stats_on_champions = [
-            elem
-            for elem in self.driver.find_elements(
-                By.XPATH, '//*[@id="content-container"]/div/table/tbody/*'
-            )
-        ]
-
-        list_of_stats_on_champs = []
-        for stat in stats_on_champions:
-            desired_stats_list = stat.text.split("\n")
-
-            if "W" not in desired_stats_list[2]:
-                wins = 0
-                desired_stats_list.insert(2, "0W")
-            else:
-                wins = int(desired_stats_list[2][:-1])
-
-            if "L" not in desired_stats_list[3]:
-                losses = 0
-                desired_stats_list.insert(3, "0L")
-            else:
-                losses = int(desired_stats_list[3][:-1])
-
-            champion = champion_name_to_enum[
-                desired_stats_list[1].lower().replace(" ", "").replace("'", "")
-            ]
-            total_games_played = wins + losses
-            win_rate = float(desired_stats_list[4][:-1])
-            kda_ratio = float(desired_stats_list[5][:-2])
-            average_gold_per_minute = float(desired_stats_list[7].split(" ")[1][1:-1])
-            average_cs_per_minute = float(desired_stats_list[7].split(" ")[3][1:-1])
-            mastery = self.get_player_mastery_at_champion(player, champion)
-
-            list_of_stats_on_champs.append(
-                Player_stats_on_champ(
-                    player,
-                    champion,
-                    mastery,
-                    total_games_played,
-                    win_rate,
-                    kda_ratio,
-                    average_gold_per_minute,
-                    average_cs_per_minute,
-                )
-            )
-
-        return list_of_stats_on_champs
-
-    # Data from Season 2023 Split 2
+    # sometimes the site blocks one player for n sec
     def get_player_stats_on_specific_champion(
         self, player: Player, champion: Champion
     ) -> Player_stats_on_champ:
-        self.driver.get(
-            f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}/champions"
+        global driver
+        global num_of_query
+
+        driver.get(
+            f"https://www.leagueofgraphs.com/summoner/champions/eune/{player.get_opgg_name()}#championsData-soloqueue"
         )
-        self.accept_op_gg_cookies()
 
         champion_string = champion_enum_to_name[champion]
 
-        # Wait until Season button is clickable
-        WebDriverWait(self.driver, 5).until(
-            EC.presence_of_element_located(
-                (
-                    By.XPATH,
-                    '//*[@id="content-container"]/div/div/div[1]/div[2]/div/button',
-                )
-            )
-        )
-        season_choice_button = self.driver.find_element(
-            By.XPATH, '//*[@id="content-container"]/div/div/div[1]/div[2]/div/button'
-        )
-        season_choice_button.click()
-
-        # Wait until Season 2023 S2 button is clickable
-        WebDriverWait(self.driver, 5).until(
-            EC.presence_of_element_located(
-                (
-                    By.XPATH,
-                    '//*[@id="content-container"]/div/div/div[1]/div[2]/div/div/button[2]',
-                )
-            )
-        )
-        season2023_split2_button = self.driver.find_element(
-            By.XPATH,
-            '//*[@id="content-container"]/div/div/div[1]/div[2]/div/div/button[2]',
-        )
-        season2023_split2_button.click()
-
-        # Wait until Ranked Solo button is clickable
-        WebDriverWait(self.driver, 5).until(
-            EC.presence_of_element_located(
-                (By.XPATH, '//*[@id="content-container"]/div/div/div[2]/button[2]')
-            )
-        )
-        ranked_solo_games_button = self.driver.find_element(
-            By.XPATH, '//*[@id="content-container"]/div/div/div[2]/button[2]'
-        )
-        ranked_solo_games_button.click()
-
-        # Wait until stats are loaded
-        WebDriverWait(self.driver, 15).until(
-            EC.visibility_of_element_located(
-                (By.XPATH, '//*[@id="content-container"]/div/table/colgroup')
-            )
+        # Wait until page are loaded
+        WebDriverWait(driver, 2).until(
+            lambda wd: driver.execute_script("return document.readyState")
+            == "complete",
+            "Page taking too long to load",
         )
 
-        # time.sleep(1)
-        stats_on_all_champions = self.driver.find_elements(
-            By.XPATH, '//*[@id="content-container"]/div/table/tbody/*'
-        )
+        # when player not found on league of graphs
+        try:
+            driver.find_element(By.CLASS_NAME, "solo-text")
+            return Player_stats_on_champ(
+                player, champion_string, -1, -1, -1, -1, -1, -1
+            )
+        except:
+            pass
+
+        stats_on_all_champions = driver.find_element(
+            By.XPATH, "//div[@data-tab-id='championsData-soloqueue']"
+        ).find_elements(By.TAG_NAME, "tr")[1:]
 
         desired_stats = None
         for stat in stats_on_all_champions:
-            if champion_string in stat.text.lower():
+            if champion_string in stat.find_element(By.CLASS_NAME, "name").text.lower():
                 desired_stats = stat
-        # TODO Make sure that no empty stats are being saved because the elements take too long to load. The condition
-        #  of desired_stats is None is a bandaid so the program doesn't crash for now.
+                break
 
-        if (
-            "There are no results recorded." in stats_on_all_champions[0].text
-            or desired_stats is None
-        ):
-            return Player_stats_on_champ(player, champion_string, 0, 0, 0, 0, 0, 0)
+        if desired_stats is None:
+            return Player_stats_on_champ(
+                player, champion_string, -1, -1, -1, -1, -1, -1
+            )
 
-        desired_stats_list = desired_stats.text.split("\n")
+        tds = desired_stats.find_elements(By.TAG_NAME, "td")
+        total_games_played = int(tds[1].text)
+        win_rate = float(tds[2].text[:-1]) / 100
 
-        """
-        Work around of stats where 0 games are won or 0 games are lost on a specific champion.
-        In these cases information of 0W or 0L isn't in site's HTML so I insert an artificial 0W/0L info to make it work.
-        """
-        if "W" not in desired_stats_list[2]:
-            wins = 0
-            desired_stats_list.insert(2, "0W")
+        kda = tds[3].text.split("\n")
+        kills = float(kda[0])
+        deaths = float(kda[2])
+        assists = float(kda[4])
+
+        if deaths == 0:
+            kda_ratio = float("inf")
         else:
-            wins = int(desired_stats_list[2][:-1])
+            kda_ratio = (kills + assists) / deaths
 
-        if "L" not in desired_stats_list[3]:
-            losses = 0
-            desired_stats_list.insert(3, "0L")
-        else:
-            losses = int(desired_stats_list[3][:-1])
+        average_cs_per_minute = float(tds[4].text)
+        average_gold_per_minute = float(tds[5].text)
 
-        total_games_played = wins + losses
-        win_rate = float(desired_stats_list[4][:-1])
-        kda_ratio = float(desired_stats_list[5][:-2])
-        average_gold_per_minute = float(desired_stats_list[7].split(" ")[1][1:-1])
-        average_cs_per_minute = float(desired_stats_list[7].split(" ")[3][1:-1])
-        mastery = self.get_player_mastery_at_champion(player, champion)
+        mastery_txt = (
+            desired_stats.find_element(By.CLASS_NAME, "requireTooltip")
+            .get_attribute("tooltip")
+            .replace(",", "")
+        )
+        mastery = int(re.search(r"Points: (\d+)", mastery_txt).group(1))
 
         result = Player_stats_on_champ(
             player,
@@ -584,8 +499,9 @@ class Scrapper:
             mastery,
             total_games_played,
             win_rate,
-            kda_ratio,
+            round(kda_ratio, 4),
             average_gold_per_minute,
             average_cs_per_minute,
         )
+
         return result
