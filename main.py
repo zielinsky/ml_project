@@ -1,7 +1,9 @@
-from scrapper import *
-from csv_handler import *
-from data_conversion import *
+from scrapper import Scrapper, CHROME_DRIVER
+from csv_handler import CsvHandler, DATA_VECTOR_CSV_PATH
+from data_conversion import DataVectorConverter
 import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
 
 scrapper = Scrapper(CHROME_DRIVER)
 csv_handler = CsvHandler(scrapper)
@@ -18,14 +20,12 @@ X = df.drop("match_result", axis=1)
 y = df["match_result"]
 
 # now lets split the data into train and test
-from sklearn.model_selection import train_test_split
 
 # Splitting the data into train and test
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, train_size=0.7, random_state=42
 )
 
-from sklearn.ensemble import RandomForestClassifier
 
 classifier_rf = RandomForestClassifier(
     random_state=42, n_jobs=-1, max_depth=5, n_estimators=100, oob_score=True

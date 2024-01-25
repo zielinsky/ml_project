@@ -7,15 +7,13 @@ class DataVectorConverter:
     def __init__(self, csv_handler: CsvHandler) -> None:
         self.csv_handler = csv_handler
 
-    def get_data_necessary_to_process_matches(self, matches: list[Opgg_match]):
-        # Przydałoby się sprawdzać czy nie robimy jakiś duplikatów graczy oraz tupli (Player, Champion)
+    def get_data_necessary_to_process_matches(self, matches: list[OpggMatch]):
         def scrap_data_necessary_to_process_match(match: OpggMatch):
             match_records = match.team_blue + match.team_red
             for player, champion, lane in tqdm(match_records):
                 self.csv_handler.scrap_player_info_to_csv(player)
                 self.csv_handler.scrap_player_stats_on_champ_to_csv(player, champion)
 
-        matches = self.csv_handler.get_matches_from_csv()
         for match in tqdm(matches):
             scrap_data_necessary_to_process_match(match)
 
