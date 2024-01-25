@@ -8,6 +8,9 @@ from selenium.webdriver.support import expected_conditions as EC
 import time, json, requests
 import csv
 import re
+
+from tqdm import tqdm
+
 from classes import *
 from functools import wraps
 
@@ -118,10 +121,9 @@ class Scrapper:
     global driver
     num_of_query = 0
 
-    def __init__(self, webdriver_path: str):
+    def __init__(self):
         self.op_gg_cookies_accepted = False
         self.log_cookies_accepted = False
-        self.webdriver_path = webdriver_path
 
     def accept_op_gg_cookies(self):
         if not self.op_gg_cookies_accepted:
@@ -297,30 +299,84 @@ class Scrapper:
         response = requests.get(api_url)
         return response.json()["championPoints"]
 
+    # def get_player_info(self, player: Player) -> Player_info:
+    #     driver.get(f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}")
+    #     # accept cookies
+    #     self.accept_op_gg_cookies()
+    #
+    #     try:
+    #         self.get_only_solo_duo_games()
+    #     except:
+    #         return self.get_player_info(player)
+    #
+    #     page = driver.find_element(By.ID, "__next")
+    #
+    #     def find_on_page(name):
+    #         return page.find_element(By.CLASS_NAME, name)
+    #
+    #     try:
+    #         find_on_page("win-lose-container")
+    #     except:
+    #         # TODO We need to skip matches that have any unranked players
+    #         return Player_info(
+    #             player, None, None, None, None, None, None, None, None
+    #         )  # unranked player
+    #
+    #     chars_to_strip = "QWERTYUIOPASDFGHJKLZXCVBNM qwertyuiopasdfghjklzxcvbnm,%:/;"
+    #
+    #     overall_win_rate = (
+    #         float(find_on_page("ratio").text.strip(chars_to_strip)) / 100
+    #     )  # Win Rate 17%
+    #
+    #     rank = find_on_page("tier").text  # Gold 4
+    #
+    #     temp = (
+    #         find_on_page("win-lose").text.replace("W", "").replace("L", "").split(" ")
+    #     )  # 15W 17L
+    #     total_games_played = int(temp[0]) + int(temp[1])
+    #
+    #     level = int(find_on_page("level").text)  # 573
+    #
+    #     last_twenty_games_kda_ratio = float(
+    #         find_on_page("stats-box").find_element(By.CLASS_NAME, "ratio").text[:-2]
+    #     )  # 2.14:1
+    #
+    #     last_twenty_games_kill_participation = (
+    #         float(find_on_page("kill-participantion").text.strip(chars_to_strip)) / 100
+    #     )  # P/Kill 43%
+    #
+    #     preferred_positions = [
+    #         (lane, float(pos.get_attribute("style").strip(chars_to_strip)) / 100)
+    #         for lane, pos in zip(Lane, page.find_elements(By.CLASS_NAME, "gauge"))
+    #     ]  # height: 5.56%;
+    #
+    #     last_twenty_games_win_rate = (
+    #         float(find_on_page("chart").text.strip(chars_to_strip)) / 100
+    #     )  # 12%
+    #
+    #     return Player_info(
+    #         player,
+    #         overall_win_rate,
+    #         rank,
+    #         total_games_played,
+    #         level,
+    #         last_twenty_games_kda_ratio,
+    #         last_twenty_games_kill_participation,
+    #         preferred_positions,
+    #         last_twenty_games_win_rate,
+    #     )
+
     def get_player_info(self, player: Player) -> Player_info:
-        driver.get(f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}")
-        # accept cookies
-        self.accept_op_gg_cookies()
+        driver.get(
+            f"https://www.leagueofgraphs.com/summoner/eune/{player.get_opgg_name()}#championsData-soloqueue"
+        )
 
-        try:
-            self.get_only_solo_duo_games()
-        except:
-            return self.get_player_info(player)
-
-        page = driver.find_element(By.ID, "__next")
-
-        def find_on_page(name):
-            return page.find_element(By.CLASS_NAME, name)
-
-        try:
-            find_on_page("win-lose-container")
-        except:
-            # TODO We need to skip matches that have any unranked players
-            return Player_info(
-                player, None, None, None, None, None, None, None, None
-            )  # unranked player
-
-        chars_to_strip = "QWERTYUIOPASDFGHJKLZXCVBNM qwertyuiopasdfghjklzxcvbnm,%:/;"
+        # Wait until page are loaded
+        WebDriverWait(driver, 2).until(
+            lambda wd: driver.execute_script("return document.readyState")
+            == "complete",
+            "Page taking too long to load",
+        )
 
         overall_win_rate = (
             float(find_on_page("ratio").text.strip(chars_to_strip)) / 100
@@ -442,7 +498,7 @@ class Scrapper:
 
         return champion_stats
 
-    # !!!! work only without headless mode !!!!
+    # sometimes the site blocks one player for n sec
     def get_player_stats_on_specific_champion(
         self, player: Player, champion: Champion
     ) -> Player_stats_on_champ:
@@ -456,7 +512,7 @@ class Scrapper:
         champion_string = champion_enum_to_name[champion]
 
         # Wait until page are loaded
-        WebDriverWait(driver, 5).until(
+        WebDriverWait(driver, 2).until(
             lambda wd: driver.execute_script("return document.readyState")
             == "complete",
             "Page taking too long to load",
@@ -524,12 +580,9 @@ class Scrapper:
         return result
 
 
-scrapper = Scrapper(CHROME_DRIVER)
-
-players = scrapper.get_n_players_with_tier(1000, Tier.PLATINUM)
-
-for player in players:
-    try:
-        print(scrapper.get_player_stats_on_specific_champion(player, Champion.AKALI))
-    except:
-        driver.get_screenshot_as_file(f"{player.get_opgg_name()}.jpg")
+#
+#
+# scrapper = Scrapper()
+#
+# for player in tqdm(scrapper.get_n_players_with_tier(1000, Tier.DIAMOND)):
+#     print(scrapper.get_player_stats_on_specific_champion(player, Champion.AKALI))
