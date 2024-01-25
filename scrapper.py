@@ -164,7 +164,7 @@ class Scrapper:
             try:
                 if_solo_duo_in_games = [
                     "Ranked Solo" in i.text or i.text == "TFT.OP.GG"
-                    for i in driver.find_elements(By.CLASS_NAME, "e1gknzrf0")
+                    for i in driver.find_elements(By.CLASS_NAME, "game-type")
                 ]
                 # print(sum([1 if 'Ranked Solo' in text else 0 for text in list_of_games]), " ", len(list_of_games))
                 if False not in if_solo_duo_in_games:
@@ -196,7 +196,7 @@ class Scrapper:
         # Get matches divs
         matches_div = driver.find_elements(
             By.CLASS_NAME,
-            "e4p6qc60",
+            "e4p6qc61",
         )
 
         matches = []
@@ -430,18 +430,22 @@ class Scrapper:
         for lane_elem in lane_elements:
             lane_name = lane_elem.get_attribute("data-value")
             if lane_elem != lane_elements[0]:
-                old_lane_flag = new_lane_flag = self.driver.find_element(By.CLASS_NAME, "ee92tbj0").text.split('.')[0]
+                old_lane_flag = new_lane_flag = self.driver.find_element(
+                    By.CLASS_NAME, "ee92tbj0"
+                ).text.split(".")[0]
                 lane_a = lane_elem.find_element(By.TAG_NAME, "a")
                 lane_a.click()
 
                 start_time = time.time()
                 while time.time() - start_time < 15 and old_lane_flag == new_lane_flag:
                     try:
-                        new_lane_flag = self.driver.find_element(By.CLASS_NAME, "ee92tbj0").text.split('.')[0]
+                        new_lane_flag = self.driver.find_element(
+                            By.CLASS_NAME, "ee92tbj0"
+                        ).text.split(".")[0]
                     except:
                         pass
 
-            #print(self.driver.find_element(By.CLASS_NAME, "tier-icon").find_element(By.TAG_NAME, "img").get_attribute("alt"))
+            # print(self.driver.find_element(By.CLASS_NAME, "tier-icon").find_element(By.TAG_NAME, "img").get_attribute("alt"))
             champion_tier = champion_tier_name_to_enum[
                 driver.find_element(By.CLASS_NAME, "tier-info").text
             ]
