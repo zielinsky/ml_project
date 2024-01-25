@@ -1,7 +1,6 @@
 import csv
 import json
 import re
-from typing import Optional
 
 import requests
 import time
@@ -13,7 +12,6 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from tqdm import tqdm
 
 from classes import *
 from functools import wraps
@@ -435,7 +433,7 @@ class Scrapper:
     @staticmethod
     def get_player_stats_on_specific_champion(
         player: Player, champion: Champion
-    ) -> {PlayerStatsOnChamp}:
+    ) -> PlayerStatsOnChamp:
         global driver
         global num_of_query
 

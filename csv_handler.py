@@ -60,23 +60,20 @@ class CsvHandler:
                 writer.writerow(header)
 
             player_stats = self.scrapper.get_player_info(player)
-            if player_stats:
-                writer.writerow(
-                    [
-                        date,
-                        player_stats.player,
-                        player_stats.overall_win_rate,
-                        player_stats.rank,
-                        player_stats.total_games_played,
-                        player_stats.level,
-                        player_stats.last_twenty_games_kda_ratio,
-                        player_stats.last_twenty_games_kill_participation,
-                        player_stats.preferred_positions,
-                        player_stats.last_twenty_games_win_rate,
-                    ]
-                )
-            else:
-                writer.writerow([date, player])
+            writer.writerow(
+                [
+                    date,
+                    player_stats.player,
+                    player_stats.overall_win_rate,
+                    player_stats.rank,
+                    player_stats.total_games_played,
+                    player_stats.level,
+                    player_stats.last_twenty_games_kda_ratio,
+                    player_stats.last_twenty_games_kill_participation,
+                    player_stats.preferred_positions,
+                    player_stats.last_twenty_games_win_rate,
+                ]
+            )
 
     def scrap_n_player_matches_to_csv(self, player: Player, n: int):
         header = [
