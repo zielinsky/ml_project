@@ -378,35 +378,23 @@ class Scrapper:
             "Page taking too long to load",
         )
 
-        overall_win_rate = (
-            float(find_on_page("ratio").text.strip(chars_to_strip)) / 100
-        )  # Win Rate 17%
+        wins = float(driver.find_element(By.CLASS_NAME, "winsNumber").text)
+        losses = float(driver.find_element(By.CLASS_NAME, "lossesNumber").text)
 
-        rank = find_on_page("tier").text  # Gold 4
+        overall_win_rate = wins / losses  # Win Rate 17%
 
-        temp = (
-            find_on_page("win-lose").text.replace("W", "").replace("L", "").split(" ")
-        )  # 15W 17L
-        total_games_played = int(temp[0]) + int(temp[1])
+        rank = driver.find_element(By.CLASS_NAME, "leagueTier").text
 
-        level = int(find_on_page("level").text)  # 573
+        total_games_played = int(wins + losses)
 
-        last_twenty_games_kda_ratio = float(
-            find_on_page("stats-box").find_element(By.CLASS_NAME, "ratio").text[:-2]
-        )  # 2.14:1
+        level = int(
+            driver.find_element(By.CLASS_NAME, "bannerSubtitle").text.split(" ")[1]
+        )  # 573
 
-        last_twenty_games_kill_participation = (
-            float(find_on_page("kill-participantion").text.strip(chars_to_strip)) / 100
-        )  # P/Kill 43%
-
-        preferred_positions = [
-            (lane, float(pos.get_attribute("style").strip(chars_to_strip)) / 100)
-            for lane, pos in zip(Lane, page.find_elements(By.CLASS_NAME, "gauge"))
-        ]  # height: 5.56%;
-
-        last_twenty_games_win_rate = (
-            float(find_on_page("chart").text.strip(chars_to_strip)) / 100
-        )  # 12%
+        # preferred_positions = [
+        #     (lane, float(pos.get_attribute("style").strip(chars_to_strip)) / 100)
+        #     for lane, pos in zip(Lane, page.find_elements(By.CLASS_NAME, "gauge"))
+        # ]  # height: 5.56%;
 
         return Player_info(
             player,
@@ -414,10 +402,10 @@ class Scrapper:
             rank,
             total_games_played,
             level,
-            last_twenty_games_kda_ratio,
-            last_twenty_games_kill_participation,
-            preferred_positions,
-            last_twenty_games_win_rate,
+            -1,
+            -1,
+            [],
+            -1,
         )
 
     @retry((Exception), tries=3, delay=RETRY_DELAY, backoff=0)

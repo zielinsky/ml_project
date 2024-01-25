@@ -12,7 +12,7 @@ class DataVector:
         def scrap_data_necessary_to_process_match(match: Opgg_match):
             match_records = match.team_blue + match.team_red
             for player, champion, lane in tqdm(match_records):
-                # self.csv_handler.scrap_player_info_to_csv(player)
+                self.csv_handler.scrap_player_info_to_csv(player)
                 self.csv_handler.scrap_player_stats_on_champ_to_csv(player, champion)
 
         matches = self.csv_handler.get_matches_from_csv()
