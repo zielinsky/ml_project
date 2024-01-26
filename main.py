@@ -22,6 +22,7 @@ df = pd.read_csv(DATA_VECTOR_CSV_PATH)
 
 # shuffle the DataFrame rows
 df = df.sample(frac=1)
+df = df.drop_duplicates()
 
 # Putting feature variable to X
 X = df.drop("match_result", axis=1)
