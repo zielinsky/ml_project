@@ -127,9 +127,6 @@ class Scrapper:
         self.op_gg_cookies_accepted = False
         self.log_cookies_accepted = False
 
-    def take_screen_shot(self, path: str):
-        driver.get_screenshot_as_file(path)
-
     def accept_op_gg_cookies(self):
         if not self.op_gg_cookies_accepted:
             try:
@@ -393,7 +390,7 @@ class Scrapper:
                     except:
                         pass
 
-            # print(self.driver.find_element(By.CLASS_NAME, "tier-icon").find_element(By.TAG_NAME, "img").get_attribute("alt"))
+            # print(self.drivers.find_element(By.CLASS_NAME, "tier-icon").find_element(By.TAG_NAME, "img").get_attribute("alt"))
             champion_tier = champion_tier_name_to_enum[
                 driver.find_element(By.CLASS_NAME, "tier-info").text
             ]

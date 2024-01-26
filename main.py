@@ -12,13 +12,14 @@ csv_handler = CsvHandler(scrapper)
 
 # csv_handler.scrap_players_and_their_matches_to_csv(20, 40, Tier.GOLD)
 
-data_vector_converter = DataVectorConverter(csv_handler)
-
-data_vector = data_vector_converter.create_data_vector_based_on_matches(600)
-
-data_vector_converter.save_data_vectors_to_csv(data_vector)
+# data_vector_converter = DataVectorConverter(csv_handler)
+#
+# data_vector = data_vector_converter.create_data_vector_based_on_matches(600)
+#
+# data_vector_converter.save_data_vectors_to_csv(data_vector)
 
 df = pd.read_csv(DATA_VECTOR_CSV_PATH)
+
 # Putting feature variable to X
 X = df.drop("match_result", axis=1)
 # Putting response variable to y
