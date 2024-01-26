@@ -15,13 +15,13 @@ class DataVectorConverter:
             for player, champion, lane in match_records:
                 try:
                     self.csv_handler.scrap_player_info_to_csv(player)
-                except Exception as e:
-                    raise Exception(f"Failed to scrap player infor for player {player}")
+                except:
+                    raise Exception(f"Failed to scrap player info for player {player}")
                 try:
                     self.csv_handler.scrap_player_stats_on_champ_to_csv(
                         player, champion
                     )
-                except Exception as e:
+                except:
                     raise Exception(
                         f"Failed to scrap player champion stats for player {player} for champion {champion}"
                     )

@@ -314,15 +314,21 @@ class Scrapper:
             == "complete",
             "Page taking too long to load",
         )
-        # try:
-        wins = float(driver.find_element(By.CLASS_NAME, "winsNumber").text)
-        losses = float(driver.find_element(By.CLASS_NAME, "lossesNumber").text)
-
-        overall_win_rate = wins / losses  # Win Rate 17%
 
         rank = driver.find_element(By.CLASS_NAME, "leagueTier").text
+        if rank == "Unranked":
+            rank = (
+                driver.find_element(By.CLASS_NAME, "averageEnnemyLine")
+                .find_element(By.CLASS_NAME, "leagueTier")
+                .text
+            )
 
-        total_games_played = int(wins + losses)
+        profile_basics = driver.find_element(By.ID, "profileBasicStats")
+        charts = profile_basics.find_element(
+            By.XPATH, '//div[@data-tab-id="championsData-soloqueue"]'
+        ).find_elements(By.CLASS_NAME, "pie-chart")
+        total_games_played = int(charts[0].text)
+        overall_win_rate = float(charts[1].text.rstrip("%")) / 100
 
         level = int(
             driver.find_element(By.CLASS_NAME, "bannerSubtitle").text.split(" ")[1]
@@ -449,25 +455,20 @@ class Scrapper:
             "Page taking too long to load",
         )
 
-        # # when player not found on league of graphs
-        # try:
-        #     driver.find_element(By.CLASS_NAME, "solo-text")
-        #     return PlayerStatsOnChamp(player, champion_string, -1, -1, -1, -1, -1, -1)
-        # except:
-        #     pass
-        # try:
         stats_on_all_champions = driver.find_element(
             By.XPATH, "//div[@data-tab-id='championsData-soloqueue']"
         ).find_elements(By.TAG_NAME, "tr")[1:]
 
         desired_stats = None
         for stat in stats_on_all_champions:
-            if champion_string in stat.find_element(By.CLASS_NAME, "name").text.lower():
+            if (
+                champion_string
+                in remove_non_alpha_characters(
+                    stat.find_element(By.CLASS_NAME, "name").text
+                ).lower()
+            ):
                 desired_stats = stat
                 break
-
-        if desired_stats is None:
-            return PlayerStatsOnChamp(player, champion_string, -1, -1, -1, -1, -1, -1)
 
         tds = desired_stats.find_elements(By.TAG_NAME, "td")
         total_games_played = int(tds[1].text)
@@ -478,8 +479,9 @@ class Scrapper:
         deaths = float(kda[2])
         assists = float(kda[4])
 
+        # idk what now
         if deaths == 0:
-            kda_ratio = float("inf")
+            kda_ratio = kills + assists
         else:
             kda_ratio = (kills + assists) / deaths
 
