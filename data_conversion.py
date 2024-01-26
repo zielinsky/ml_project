@@ -1,5 +1,6 @@
 import logging
 
+from scrapper import *
 from csv_handler import *
 from classes import *
 from statistics import mean
@@ -16,12 +17,18 @@ class DataVectorConverter:
                 try:
                     self.csv_handler.scrap_player_info_to_csv(player)
                 except:
+                    self.csv_handler.scrapper.take_screen_shot(
+                        f"errors/{player.get_opgg_name()}.png"
+                    )
                     raise Exception(f"Failed to scrap player info for player {player}")
                 try:
                     self.csv_handler.scrap_player_stats_on_champ_to_csv(
                         player, champion
                     )
                 except:
+                    self.csv_handler.scrapper.take_screen_shot(
+                        f"errors/{player.get_opgg_name()}_{champion_enum_to_name[champion]}.png"
+                    )
                     raise Exception(
                         f"Failed to scrap player champion stats for player {player} for champion {champion}"
                     )

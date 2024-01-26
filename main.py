@@ -10,12 +10,12 @@ from sklearn.ensemble import RandomForestClassifier
 scrapper = Scrapper()
 csv_handler = CsvHandler(scrapper)
 
-csv_handler.scrap_players_and_their_matches_to_csv(15, 40, Tier.PLATINUM)
+# csv_handler.scrap_players_and_their_matches_to_csv(20, 40, Tier.GOLD)
 
 data_vector_converter = DataVectorConverter(csv_handler)
 
-data_vector = data_vector_converter.create_data_vector_based_on_matches(400)
-# print(data_vector)
+data_vector = data_vector_converter.create_data_vector_based_on_matches(600)
+
 data_vector_converter.save_data_vectors_to_csv(data_vector)
 
 df = pd.read_csv(DATA_VECTOR_CSV_PATH)
@@ -27,7 +27,7 @@ y = df["match_result"]
 
 # Splitting the data into train and test
 X_train, X_test, y_train, y_test = train_test_split(
-    X, y, train_size=0.3, random_state=42
+    X, y, train_size=0.7, random_state=42
 )
 
 
