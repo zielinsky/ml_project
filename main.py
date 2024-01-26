@@ -20,6 +20,9 @@ csv_handler = CsvHandler(scrapper)
 
 df = pd.read_csv(DATA_VECTOR_CSV_PATH)
 
+# shuffle the DataFrame rows
+df = df.sample(frac=1)
+
 # Putting feature variable to X
 X = df.drop("match_result", axis=1)
 # Putting response variable to y
@@ -28,7 +31,7 @@ y = df["match_result"]
 
 # Splitting the data into train and test
 X_train, X_test, y_train, y_test = train_test_split(
-    X, y, train_size=0.7, random_state=42
+    X, y, train_size=0.5, random_state=42
 )
 
 
