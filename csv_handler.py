@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 
 from scrapper import Scrapper
@@ -229,13 +230,22 @@ class CsvHandler:
             # except Exception as e:
             #     raise e
 
+    def scrap_matches_for_players_to_csv(
+        self, num_of_matches: int, players: list[Player]
+    ):
+        for player in tqdm(players):
+            try:
+                self.scrap_n_player_matches_to_csv(player, num_of_matches)
+            except Exception as e:
+                logging.warning(f"Failed to scrap matches for player {player}")
+                continue
+
     def scrap_players_and_their_matches_to_csv(
         self, num_of_players: int, num_of_matches: int, tier: Tier
     ):
         self.scrap_players_to_csv(num_of_players, tier)
         players = self.get_players_from_csv()
-        for player in tqdm(players):
-            self.scrap_n_player_matches_to_csv(player, num_of_matches)
+        self.scrap_matches_for_players_to_csv(num_of_matches, players)
 
     @staticmethod
     def get_matches_from_csv(num_of_matches: Optional[int] = None) -> list[OpggMatch]:
