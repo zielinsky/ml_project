@@ -175,7 +175,6 @@ class Scrapper:
             except:
                 pass
 
-    @retry(Exception, tries=3, delay=RETRY_DELAY, backoff=0)
     def get_n_recent_matches(self, n: int, player: Player) -> list[OpggMatch]:
         driver.get(f"https://www.op.gg/summoners/eune/{player.get_opgg_name()}")
         self.accept_op_gg_cookies()
