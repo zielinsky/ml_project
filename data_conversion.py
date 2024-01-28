@@ -10,6 +10,19 @@ class DataVectorConverter:
     def __init__(self, csv_handler: CsvHandler) -> None:
         self.csv_handler = csv_handler
 
+    def process_matches(self, num_of_matches: int, index_from: int = 0) -> None:
+        matches = self.csv_handler.get_matches_from_csv(num_of_matches)
+        matches = matches[index_from:]
+        batch_size = 2
+        if num_of_matches - index_from < 0:
+            return
+        for i in tqdm(range(0, num_of_matches - index_from, batch_size)):
+            batch_matches = matches[i : i + batch_size]
+            self.get_data_necessary_to_process_matches(batch_matches)
+            batch_data_vectors = self.create_data_vector_based_on_matches(batch_matches)
+            self.save_data_vectors_to_csv(batch_data_vectors)
+            time.sleep(1)
+
     def get_data_necessary_to_process_matches(self, matches: list[OpggMatch]):
         def scrap_data_necessary_to_process_match(match: OpggMatch):
             match_records = match.team_blue + match.team_red
@@ -35,10 +48,8 @@ class DataVectorConverter:
                 continue
 
     def create_data_vector_based_on_matches(
-        self, num_of_entries: Optional[int] = None
+        self, matches: list[OpggMatch]
     ) -> list[DataVector]:
-        matches = self.csv_handler.get_matches_from_csv(num_of_entries)
-        self.get_data_necessary_to_process_matches(matches)
         players_info = self.csv_handler.get_players_info_from_csv()
         players_stats_on_champ = self.csv_handler.get_players_stats_on_champ_from_csv()
         champions_stats = self.csv_handler.get_champ_stats_from_csv()

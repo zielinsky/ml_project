@@ -9,12 +9,9 @@ from sklearn.ensemble import RandomForestClassifier
 
 scrapper = Scrapper()
 csv_handler = CsvHandler(scrapper)
+data_vector_converter = DataVectorConverter(csv_handler)
 
-players = csv_handler.get_players_from_csv()
-players = players[100:]
-csv_handler.scrap_matches_for_players_to_csv(20, players)
-
-# data_vector_converter = DataVectorConverter(csv_handler)
+data_vector_converter.process_matches(10)
 #
 # data_vector = data_vector_converter.create_data_vector_based_on_matches(600)
 #
