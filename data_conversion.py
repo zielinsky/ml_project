@@ -13,7 +13,7 @@ class DataVectorConverter:
     def process_matches(self, num_of_matches: int, index_from: int = 0) -> None:
         matches = self.csv_handler.get_matches_from_csv(num_of_matches)
         matches = matches[index_from:]
-        batch_size = 2
+        batch_size = 50
         if num_of_matches - index_from < 0:
             return
         for i in tqdm(range(0, num_of_matches - index_from, batch_size)):
@@ -21,7 +21,7 @@ class DataVectorConverter:
             self.get_data_necessary_to_process_matches(batch_matches)
             batch_data_vectors = self.create_data_vector_based_on_matches(batch_matches)
             self.save_data_vectors_to_csv(batch_data_vectors)
-            time.sleep(1)
+            time.sleep(10)
 
     def get_data_necessary_to_process_matches(self, matches: list[OpggMatch]):
         def scrap_data_necessary_to_process_match(match: OpggMatch):
