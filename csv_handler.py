@@ -1,3 +1,6 @@
+import logging
+from typing import Optional
+
 from scrapper import Scrapper
 from classes import *
 import os.path
@@ -21,6 +24,7 @@ CHAMPION_STATS_CSVS_PATHS = [
     "data/champStats/Adc.csv",
     "data/champStats/Support.csv",
 ]
+DATA_VECTOR_CSV_PATH = "data/data_vector.csv"
 
 # ========================== CONSTANTS ==========================
 
@@ -58,7 +62,7 @@ class CsvHandler:
 
             if not csv_exists:
                 writer.writerow(header)
-
+            # try:
             player_stats = self.scrapper.get_player_info(player)
             writer.writerow(
                 [
@@ -74,6 +78,8 @@ class CsvHandler:
                     player_stats.last_twenty_games_win_rate,
                 ]
             )
+            # except Exception as e:
+            #     raise e
 
     def scrap_n_player_matches_to_csv(self, player: Player, n: int):
         header = [
@@ -198,16 +204,17 @@ class CsvHandler:
             "average_gold_per_minute",
             "average_cs_per_minute",
         ]
-        player_stats_on_champ = self.scrapper.get_player_stats_on_specific_champion(
-            player, champion
-        )
+
         csv_exists = os.path.exists(PLAYER_STATS_ON_CHAMP_CSV_PATH)
         with open(PLAYER_STATS_ON_CHAMP_CSV_PATH, "a+", newline="") as file:
             writer = csv.writer(file)
 
             if not csv_exists:
                 writer.writerow(header)
-
+            # try:
+            player_stats_on_champ = self.scrapper.get_player_stats_on_specific_champion(
+                player, champion
+            )
             writer.writerow(
                 [
                     player_stats_on_champ.player,
@@ -220,17 +227,28 @@ class CsvHandler:
                     player_stats_on_champ.average_cs_per_minute,
                 ]
             )
+            # except Exception as e:
+            #     raise e
+
+    def scrap_matches_for_players_to_csv(
+        self, num_of_matches: int, players: list[Player]
+    ):
+        for player in tqdm(players):
+            try:
+                self.scrap_n_player_matches_to_csv(player, num_of_matches)
+            except Exception as e:
+                logging.warning(f"Failed to scrap matches for player {player}")
+                continue
 
     def scrap_players_and_their_matches_to_csv(
         self, num_of_players: int, num_of_matches: int, tier: Tier
     ):
         self.scrap_players_to_csv(num_of_players, tier)
         players = self.get_players_from_csv()
-        for player in tqdm(players):
-            self.scrap_n_player_matches_to_csv(player, num_of_matches)
+        self.scrap_matches_for_players_to_csv(num_of_matches, players)
 
     @staticmethod
-    def get_matches_from_csv() -> list[OpggMatch]:
+    def get_matches_from_csv(num_of_matches: Optional[int] = None) -> list[OpggMatch]:
         matches = []
         with open(MATCHES_CSV_PATH, "r", newline="") as file:
             reader = csv.reader(file)
@@ -238,7 +256,10 @@ class CsvHandler:
             # skip header
             next(reader, None)
 
-            for row in reader:
+            for idx, row in enumerate(reader):
+                if num_of_matches is not None:
+                    if idx == num_of_matches:
+                        break
                 match_result = eval(row[1])
                 team_red = [
                     eval(replace_all_enum_occurrences(player)) for player in row[2:7]
