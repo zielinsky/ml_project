@@ -321,6 +321,8 @@ class Scrapper:
                 .find_element(By.CLASS_NAME, "leagueTier")
                 .text
             )
+        rank = rank.split(" ")
+        rank = f"{rank[0]} {rank[1]}"
 
         profile_basics = driver.find_element(By.ID, "profileBasicStats")
         charts = profile_basics.find_element(
