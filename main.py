@@ -104,6 +104,16 @@ def random_forest():
 
     print(classifier_rf.score(X_test, y_test))
 
+    # sel = SelectFromModel(classifier_rf)
+    #
+    # selected_feat = X_train.columns[(sel.get_support())]
+    #
+    # # print(selected_feat)
+    #
+    # plt.barh(X.columns, classifier_rf.feature_importances_)
+    #
+    # plt.show()
+
 
 random_forest()
 xgboost_model()
