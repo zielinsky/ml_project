@@ -55,15 +55,25 @@ class DataVectorConverter:
         champions_stats = self.csv_handler.get_champ_stats_from_csv()
 
         def get_entry_for_player(
-            player_info: PlayerInfo, player_stats_on_champion: PlayerStatsOnChamp
+            player_info: PlayerInfo,
+            player_stats_on_champion: PlayerStatsOnChamp,
+            is_winner: bool,
         ) -> DataEntryForPlayer:
+            # if player_info.total_games_played < 20:
+            #     raise KeyError
+            won_games = round(
+                player_info.total_games_played * player_info.overall_win_rate
+            )
+            if is_winner:
+                won_games = won_games - 1
+            new_wr = won_games / (player_info.total_games_played - 1)
             return DataEntryForPlayer(
                 player_stats_on_champion.mastery,
-                player_stats_on_champion.win_rate,
-                player_stats_on_champion.kda_ratio,
-                player_stats_on_champion.average_gold_per_minute,
-                player_stats_on_champion.average_cs_per_minute,
-                player_info.overall_win_rate,
+                # player_stats_on_champion.win_rate,
+                # player_stats_on_champion.kda_ratio,
+                # player_stats_on_champion.average_gold_per_minute,
+                # player_stats_on_champion.average_cs_per_minute,
+                new_wr,
             )
 
         def get_entry_for_champion(
@@ -83,6 +93,7 @@ class DataVectorConverter:
             players_stats_on_champion: dict[Player, dict[Champion, PlayerStatsOnChamp]],
             team: list[(Player, Champion, Lane)],
             enemy_team: list[(Player, Champion, Lane)],
+            is_winner: bool,
         ) -> (list[DataEntryForPlayer], list[ChampionEntry], list[DataEntryTeam]):
             player_entries = []
             champion_entries = []
@@ -92,6 +103,7 @@ class DataVectorConverter:
                         get_entry_for_player(
                             players_info[player],
                             players_stats_on_champion[player][champion],
+                            is_winner,
                         )
                     )
                     try:
@@ -123,12 +135,12 @@ class DataVectorConverter:
                             for player_entry in player_entries
                         ]
                     ),
-                    mean(
-                        [
-                            player_entry.player_wr_on_champ
-                            for player_entry in player_entries
-                        ]
-                    ),
+                    # mean(
+                    #     [
+                    #         player_entry.player_wr_on_champ
+                    #         for player_entry in player_entries
+                    #     ]
+                    # ),
                     mean(
                         [
                             champion_entry.match_up_wr
@@ -152,14 +164,22 @@ class DataVectorConverter:
                     blue_team_champions_entries,
                     blue_team_team_entry,
                 ) = calculate_vector_entries(
-                    players_info, players_stats_on_champ, blue_team, red_team
+                    players_info,
+                    players_stats_on_champ,
+                    blue_team,
+                    red_team,
+                    match_result == MatchResult.BLUE,
                 )
                 (
                     red_team_players_entries,
                     red_team_champions_entries,
                     red_team_team_entry,
                 ) = calculate_vector_entries(
-                    players_info, players_stats_on_champ, red_team, blue_team
+                    players_info,
+                    players_stats_on_champ,
+                    red_team,
+                    blue_team,
+                    match_result == MatchResult.RED,
                 )
 
                 data_vector_list.append(
@@ -185,18 +205,21 @@ class DataVectorConverter:
 
         def get_header_entries() -> list[str]:
             def get_entry_header(
-                team_name: str, player_num: str, entry_suffixes: list[str]
+                team_name: str, entry_suffixes: list[str], player_num: str = None
             ) -> list[str]:
-                prefix = team_name + "_player_" + player_num + "_"
+                if player_num is None:
+                    prefix = team_name + "_"
+                else:
+                    prefix = team_name + "_player_" + player_num + "_"
                 entry_header = [prefix + suffix for suffix in entry_suffixes]
                 return entry_header
 
             player_suffixes = [
                 "mastery_on_champ",
-                "wr_on_champ",
-                "kda_ratio_on_champ",
-                "gpm_on_champ",
-                "cspm_on_champ",
+                # "wr_on_champ",
+                # "kda_ratio_on_champ",
+                # "gpm_on_champ",
+                # "cspm_on_champ",
                 "overall_wr",
             ]
             champion_suffixes = [
@@ -210,7 +233,7 @@ class DataVectorConverter:
                 "total_mastery",
                 "average_mastery",
                 "average_player_wr",
-                "average_champion_specific_player_wr",
+                # "average_champion_specific_player_wr",
                 "average_champion_specific_match_up_wr",
             ]
 
@@ -218,13 +241,13 @@ class DataVectorConverter:
             for team_name in ["blue_team", "red_team"]:
                 for player_num in ["1", "2", "3", "4", "5"]:
                     header.append(
-                        get_entry_header(team_name, player_num, player_suffixes)
+                        get_entry_header(team_name, player_suffixes, player_num)
                     )
                 for player_num in ["1", "2", "3", "4", "5"]:
                     header.append(
-                        get_entry_header(team_name, player_num, champion_suffixes)
+                        get_entry_header(team_name, champion_suffixes, player_num)
                     )
-                header.append(get_entry_header(team_name, player_num, team_suffixes))
+                header.append(get_entry_header(team_name, team_suffixes))
             return flatten(header)
 
         def append_entry_list_values(

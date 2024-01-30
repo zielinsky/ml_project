@@ -125,10 +125,10 @@ class ChampStats:
 @dataclass
 class DataEntryForPlayer:
     player_mastery_on_champ: int
-    player_wr_on_champ: float
-    player_kda_ratio_on_champ: float
-    player_gpm_on_champ: float
-    player_cspm_on_champ: float
+    # player_wr_on_champ: float
+    # player_kda_ratio_on_champ: float
+    # player_gpm_on_champ: float
+    # player_cspm_on_champ: float
     player_overall_wr: float
 
 
@@ -137,7 +137,7 @@ class DataEntryTeam:
     total_mastery: int
     average_mastery: float
     average_player_wr: float
-    average_champion_specific_player_wr: float
+    # average_champion_specific_player_wr: float
     average_champion_specific_match_up_wr: float
 
 
