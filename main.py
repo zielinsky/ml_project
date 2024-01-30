@@ -22,11 +22,6 @@ col_to_delete = [
     "blue_team_player_3_wr_on_champ",
     "blue_team_player_4_wr_on_champ",
     "blue_team_player_5_wr_on_champ",
-    "blue_team_player_1_overall_wr",
-    "blue_team_player_2_overall_wr",
-    "blue_team_player_3_overall_wr",
-    "blue_team_player_4_overall_wr",
-    "blue_team_player_5_overall_wr",
     "blue_team_player_1_gpm_on_champ",
     "blue_team_player_2_gpm_on_champ",
     "blue_team_player_3_gpm_on_champ",
@@ -48,11 +43,6 @@ col_to_delete = [
     "red_team_player_3_wr_on_champ",
     "red_team_player_4_wr_on_champ",
     "red_team_player_5_wr_on_champ",
-    "red_team_player_1_overall_wr",
-    "red_team_player_2_overall_wr",
-    "red_team_player_3_overall_wr",
-    "red_team_player_4_overall_wr",
-    "red_team_player_5_overall_wr",
     "red_team_player_1_gpm_on_champ",
     "red_team_player_2_gpm_on_champ",
     "red_team_player_3_gpm_on_champ",
@@ -98,8 +88,8 @@ def xgboost_model():
     num_round = 10
     bst = xgb.train(param, dtrain, num_round, evals=evallist)
 
-    xgb.plot_importance(bst)
-    plt.show()
+    # xgb.plot_importance(bst)
+    # plt.show()
 
 
 def random_forest():
