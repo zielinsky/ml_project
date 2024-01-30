@@ -100,7 +100,6 @@ def xgboost_model():
     # xgb.plot_importance(bst)
     # plt.show()
 
-
 def random_forest():
     classifier_rf = RandomForestClassifier(
         random_state=42, n_jobs=-1, max_depth=25, n_estimators=100, oob_score=True
@@ -124,35 +123,26 @@ def random_forest():
     # plt.show()
 
 def find_best_knn_params_and_pca(X_train_knn, X_test_knn):
+    best_acc = 0.0
+    best_params = {}
+    grid_params = {'n_neighbors': range(350, 551)}
+    for i in tqdm(range(1, min(X_train_knn.shape[0], X_train_knn.shape[1]) + 1)):
+        knn = KNeighborsClassifier(n_jobs=-1)
+        grid_search = GridSearchCV(knn, grid_params, cv=5, n_jobs=-1, verbose=0)
+        pca = PCA(n_components=i)
+        X_train_pca = pca.fit_transform(X_train_knn)
+        X_test_pca = pca.fit_transform(X_test_knn)
+        grid_search.fit(X_train_pca, y_train)
+        model = grid_search.best_estimator_
+        test_acc = model.score(X_test_pca, y_test)
+        if test_acc > best_acc:
+            best_acc = test_acc
+            best_params = {'knn': grid_search.best_params_['n_neighbors'], 'pca': i}
 
-    # Define the parameter grid to search
-    param_grid = {
-        'pca__n_components': range(1, min(X_train_knn.shape[0], X_train_knn.shape[1]) + 1, 10),
-        'knn__n_neighbors': range(380, 420, 1)
-    }
+    print(f"Best acc: {best_acc}")
+    return best_params
 
-    # Create a pipeline with PCA and KNN
-    pipeline = Pipeline([
-        ('pca', PCA()),
-        ('knn', KNeighborsClassifier(n_jobs=-1))
-    ])
-
-    # Create the GridSearchCV object
-    grid_search = GridSearchCV(pipeline, param_grid, cv=5, scoring='accuracy', n_jobs=-1, verbose=2)
-
-    # Fit the model to the data
-    grid_search.fit(X_train_knn, y_train)
-    print(grid_search.best_params_)
-    # Get the best model
-    best_model = grid_search.best_estimator_
-
-    # Print the best parameters
-    test_accuracy = best_model.score(X_test_knn, y_test)
-    print("Test Accuracy:", test_accuracy)
-
-    return grid_search.best_params_
-
-def KNN_model():
+def KNN_model(xd):
     # Scale features
     scaler = MinMaxScaler(feature_range=(0, 1))
 
@@ -163,18 +153,29 @@ def KNN_model():
     X_test_knn = pd.DataFrame(x_test_scaled)
 
     # Get the best PCA model
-    best_params = find_best_knn_params_and_pca(X_train_knn, X_test_knn)
-    print(best_params['knn__n_neighbors'], best_params['pca__n_components'])
+    # best_params = find_best_knn_params_and_pca(X_train_knn, X_test_knn)
+    # print(best_params['knn'], best_params['pca'])
+    best_params = {'knn': xd, 'pca': 2}
 
-    pca = PCA(n_components=best_params['pca__n_components'])
-    X_train_pca = pca.fit_transform(X_train_knn)
-    X_test_pca = pca.fit_transform(X_test_knn)
+    pca = PCA(n_components=best_params['pca'])
+    # X_train_pca = pca.fit_transform(X_train_knn)
+    # X_test_pca = pca.fit_transform(X_test_knn)
+    X_train_pca = X_train_knn
+    X_test_pca = X_test_knn
 
-    knn = KNeighborsClassifier(n_neighbors=best_params['knn__n_neighbors'], n_jobs=-1)
-    knn.fit(X_train_knn, y_train)
+    knn = KNeighborsClassifier(n_neighbors=best_params['knn'], n_jobs=-1)
+    knn.fit(X_train_pca, y_train)
     # Predict on dataset which model has not seen before
-    print(knn.score(X_test_knn, y_test))
+    return knn.score(X_test_pca, y_test)
 
-KNN_model()
+arr = []
+for j in tqdm(range(1000)):
+    temp = KNN_model(413)
+    #print(temp)
+    arr.append(temp)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, train_size=0.7
+    )
+print(f"Avr acc: {sum(arr) / len(arr)}\nMin: {min(arr)}\nMax:{max(arr)}\nRange: {max(arr) - min(arr)}")
 #random_forest()
 #xgboost_model()
