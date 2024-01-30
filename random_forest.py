@@ -1,10 +1,7 @@
-from matplotlib import pyplot as plt
-from sklearn.ensemble import RandomForestClassifier
-
 from csv_handler import DATA_VECTOR_CSV_PATH
 import pandas as pd
 from sklearn.model_selection import train_test_split
-import xgboost as xgb
+from sklearn.ensemble import RandomForestClassifier
 
 
 df = pd.read_csv(DATA_VECTOR_CSV_PATH)
@@ -42,6 +39,7 @@ col_to_delete = [
     "blue_team_player_3_kda_ratio_on_champ",
     "blue_team_player_4_kda_ratio_on_champ",
     "blue_team_player_5_kda_ratio_on_champ",
+    # "blue_team_average_player_wr",
     "blue_team_player_5_average_champion_specific_player_wr",
     "red_team_player_1_wr_on_champ",
     "red_team_player_2_wr_on_champ",
@@ -68,52 +66,28 @@ col_to_delete = [
     "red_team_player_3_kda_ratio_on_champ",
     "red_team_player_4_kda_ratio_on_champ",
     "red_team_player_5_kda_ratio_on_champ",
+    # "red_team_average_player_wr",
     "red_team_player_5_average_champion_specific_player_wr",
 ]
 
 for col in col_to_delete:
     X = X.drop(col, axis=1)
 
-# Putting response variable to y
 y = df["match_result"]
-y = y.apply((lambda row: 0 if row == "RED" else 1))
-
 
 # Splitting the data into train and test
 X_train, X_test, y_train, y_test = train_test_split(
-    X, y, train_size=0.7, random_state=42
+    X, y, train_size=0.5, random_state=42
 )
 
 
-def xgboost_model():
-    dtrain = xgb.DMatrix(X_train, label=y_train)
-    dtest = xgb.DMatrix(X_test, label=y_test)
+classifier_rf = RandomForestClassifier(
+    random_state=42, n_jobs=-1, max_depth=25, n_estimators=100, oob_score=True
+)
 
-    param = {"max_depth": 2, "eta": 1, "objective": "binary:logistic"}
-    param["nthread"] = 6
-    param["eval_metric"] = "auc"
+classifier_rf.fit(X_train, y_train)
 
-    evallist = [(dtrain, "train"), (dtest, "eval")]
+# checking the oob score
+print(f"OOB score = {classifier_rf.oob_score_}")
 
-    num_round = 10
-    bst = xgb.train(param, dtrain, num_round, evals=evallist)
-
-    xgb.plot_importance(bst)
-    plt.show()
-
-
-def random_forest():
-    classifier_rf = RandomForestClassifier(
-        random_state=42, n_jobs=-1, max_depth=25, n_estimators=100, oob_score=True
-    )
-
-    classifier_rf.fit(X_train, y_train)
-
-    # checking the oob score
-    print(f"OOB score = {classifier_rf.oob_score_}")
-
-    print(classifier_rf.score(X_test, y_test))
-
-
-random_forest()
-xgboost_model()
+print(classifier_rf.score(X_test, y_test))
