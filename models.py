@@ -1,5 +1,6 @@
 from matplotlib import pyplot as plt
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 
 from csv_handler import DATA_VECTOR_CSV_PATH
 import pandas as pd
@@ -114,6 +115,19 @@ def random_forest():
     #
     # plt.show()
 
+def logistic_regression():
+    scaler = MinMaxScaler(feature_range=(0, 1))
 
-random_forest()
-xgboost_model()
+    x_train_scaled = scaler.fit_transform(X_train)
+    X_train_lr = pd.DataFrame(x_train_scaled)
+
+    x_test_scaled = scaler.fit_transform(X_test)
+    X_test_lr = pd.DataFrame(x_test_scaled)
+
+    classifier_lr = LogisticRegression(max_iter=1000)
+    classifier_lr.fit(X_train_lr, y_train)
+    print(f"OOB score = {classifier_lr.score(X_test_lr, y_test)}")
+
+logistic_regression()
+#random_forest()
+#xgboost_model()
