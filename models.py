@@ -15,6 +15,7 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 import xgboost as xgb
 
+from sklearn.preprocessing import MinMaxScaler
 
 df = pd.read_csv(DATA_VECTOR_CSV_PATH)
 
