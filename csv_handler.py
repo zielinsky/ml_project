@@ -24,7 +24,7 @@ CHAMPION_STATS_CSVS_PATHS = [
     "data/champStats/Adc.csv",
     "data/champStats/Support.csv",
 ]
-DATA_VECTOR_CSV_PATH = "data/data_vector.csv"
+DATA_VECTOR_CSV_PATH = "data/data_vector2.csv"
 
 # ========================== CONSTANTS ==========================
 
