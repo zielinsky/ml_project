@@ -98,7 +98,7 @@ class PlayerStatsOnChamp:
 class PlayerInfo:
     player: Player
     overall_win_rate: float
-    rank: str  # type Tier? ===========================================================================================
+    rank: str
     total_games_played: int
     level: int
     last_twenty_games_kda_ratio: float
